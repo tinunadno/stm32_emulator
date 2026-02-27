@@ -1,5 +1,5 @@
 CC       = gcc
-CFLAGS   = -Wall -Wextra -Wpedantic -std=c11 -I.
+CFLAGS   = -Wall -Wextra -Wpedantic -std=c11 -I. -g -O0
 LDFLAGS  =
 TARGET   = stm32sim
 
@@ -12,7 +12,8 @@ LIB_SRCS = core/core.c \
            peripherals/uart/uart.c \
            debugger/debugger.c \
            simulator/simulator.c \
-           ui/ui.c
+           ui/ui.c \
+           gdb_stub/gdb_stub.c
 
 SRCS     = main.c $(LIB_SRCS)
 OBJS     = $(SRCS:.c=.o)
