@@ -2,7 +2,7 @@ CC      = arm-none-eabi-gcc
 OBJCOPY = arm-none-eabi-objcopy
 SIZE    = arm-none-eabi-size
 
-CFLAGS  = -mcpu=cortex-m3 -mthumb -nostdlib -ffreestanding -Os -Wall
+CFLAGS  = -mcpu=cortex-m3 -mthumb -nostdlib -ffreestanding -g -O0 -Wall
 LDFLAGS = -T link.ld -nostdlib -nostartfiles
 
 all: firmware.bin

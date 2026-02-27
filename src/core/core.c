@@ -744,6 +744,40 @@ static Status exec_add_sp_imm_rd(Core* core, uint16_t instr)
 
 /* --- Format 13: Adjust SP --- */
 
+/* --- Sign/zero-extend byte/halfword --- */
+
+static Status exec_sxth(Core* core, uint16_t instr)
+{
+    uint32_t Rm = (instr >> 3) & 0x7;
+    uint32_t Rd = instr & 0x7;
+    R(Rd) = (uint32_t)(int32_t)(int16_t)(uint16_t)R(Rm);
+    return STATUS_OK;
+}
+
+static Status exec_sxtb(Core* core, uint16_t instr)
+{
+    uint32_t Rm = (instr >> 3) & 0x7;
+    uint32_t Rd = instr & 0x7;
+    R(Rd) = (uint32_t)(int32_t)(int8_t)(uint8_t)R(Rm);
+    return STATUS_OK;
+}
+
+static Status exec_uxth(Core* core, uint16_t instr)
+{
+    uint32_t Rm = (instr >> 3) & 0x7;
+    uint32_t Rd = instr & 0x7;
+    R(Rd) = R(Rm) & 0xFFFF;
+    return STATUS_OK;
+}
+
+static Status exec_uxtb(Core* core, uint16_t instr)
+{
+    uint32_t Rm = (instr >> 3) & 0x7;
+    uint32_t Rd = instr & 0x7;
+    R(Rd) = R(Rm) & 0xFF;
+    return STATUS_OK;
+}
+
 static Status exec_adjust_sp(Core* core, uint16_t instr)
 {
     uint32_t imm7 = (instr & 0x7F) << 2;
@@ -908,6 +942,12 @@ static const InstrEntry instr_table[] = {
     /* Format 13: Adjust SP */
     {0xFF00, 0xB000, exec_adjust_sp,  "ADD/SUB SP"},
 
+    /* Sign/zero-extend: SXTH=B200 SXTB=B240 UXTH=B280 UXTB=B2C0 */
+    {0xFFC0, 0xB200, exec_sxth,       "SXTH"},
+    {0xFFC0, 0xB240, exec_sxtb,       "SXTB"},
+    {0xFFC0, 0xB280, exec_uxth,       "UXTH"},
+    {0xFFC0, 0xB2C0, exec_uxtb,       "UXTB"},
+
     /* Format 2: Add/subtract register and imm3 (mask 0xFE00) */
     {0xFE00, 0x1800, exec_add_reg,    "ADD reg"},
     {0xFE00, 0x1A00, exec_sub_reg,    "SUB reg"},
@@ -971,12 +1011,33 @@ static const InstrEntry instr_table[] = {
 };
 
 /* ======================================================================
- * 32-bit instruction handling (BL only for now)
+ * 32-bit instruction handling
  * ====================================================================== */
+
+/*
+ * ThumbExpandImm — decode the 12-bit modified immediate used by the
+ * Thumb-2 data-processing instructions (AND.W, ORR.W, MOV.W, etc.).
+ */
+static uint32_t thumb_expand_imm(uint32_t imm12)
+{
+    uint32_t byte = imm12 & 0xFF;
+    switch ((imm12 >> 8) & 0xF) {
+    case 0x0: return byte;
+    case 0x1: return (byte << 16) | byte;
+    case 0x2: return (byte << 24) | (byte << 8);
+    case 0x3: return (byte << 24) | (byte << 16) | (byte << 8) | byte;
+    default: {
+        /* Rotation: value = 1:imm12[6:0], amount = imm12[11:7] */
+        uint32_t val    = 0x80 | (imm12 & 0x7F);
+        uint32_t amount = (imm12 >> 7) & 0x1F;
+        return (val >> amount) | (val << (32 - amount));
+    }
+    }
+}
 
 static Status execute_32bit(Core* core, uint16_t hw1, uint16_t hw2)
 {
-    /* BL: hw1 = 11110 S imm10, hw2 = 11 J1 1 J2 imm11 */
+    /* BL T1: hw1 = 11110 S imm10, hw2 = 11 J1 1 J2 imm11 */
     if ((hw1 & 0xF800) == 0xF000 && (hw2 & 0xD000) == 0xD000) {
         uint32_t S    = (hw1 >> 10) & 1;
         uint32_t J1   = (hw2 >> 13) & 1;
@@ -994,6 +1055,116 @@ static Status execute_32bit(Core* core, uint16_t hw1, uint16_t hw2)
         R(PC) = R(PC) + 4 + offset;
         pc_written = 1;
         return STATUS_OK;
+    }
+
+    /* MOVW T3: 1111 0i10 0100 imm4 | 0 imm3 Rd imm8
+     * Loads a 16-bit immediate zero-extended into Rd. */
+    if ((hw1 & 0xFBF0) == 0xF240 && !(hw2 & 0x8000)) {
+        uint32_t imm4  = hw1 & 0x0F;
+        uint32_t i     = (hw1 >> 10) & 1;
+        uint32_t imm3  = (hw2 >> 12) & 0x7;
+        uint32_t Rd    = (hw2 >> 8) & 0xF;
+        uint32_t imm8  = hw2 & 0xFF;
+        uint32_t imm16 = (imm4 << 12) | (i << 11) | (imm3 << 8) | imm8;
+        R(Rd) = imm16;  /* upper 16 bits cleared */
+        return STATUS_OK;
+    }
+
+    /* MOVT T1: 1111 0i10 1100 imm4 | 0 imm3 Rd imm8
+     * Writes 16-bit immediate into the top half of Rd, lower half unchanged. */
+    if ((hw1 & 0xFBF0) == 0xF2C0 && !(hw2 & 0x8000)) {
+        uint32_t imm4  = hw1 & 0x0F;
+        uint32_t i     = (hw1 >> 10) & 1;
+        uint32_t imm3  = (hw2 >> 12) & 0x7;
+        uint32_t Rd    = (hw2 >> 8) & 0xF;
+        uint32_t imm8  = hw2 & 0xFF;
+        uint32_t imm16 = (imm4 << 12) | (i << 11) | (imm3 << 8) | imm8;
+        R(Rd) = (R(Rd) & 0x0000FFFFU) | (imm16 << 16);
+        return STATUS_OK;
+    }
+
+    /* Data Processing (modified immediate):
+     * hw1 = 1111 0i0 op S Rn  (hw1[9]=0)
+     * hw2 = 0 imm3 Rd imm8    (hw2[15]=0)
+     * Covers: AND, BIC, ORR/MOV, ORN/MVN, EOR, ADD, ADC, SBC, SUB, RSB
+     */
+    if ((hw1 & 0xFA00) == 0xF000 && !(hw2 & 0x8000)) {
+        uint32_t i     = (hw1 >> 10) & 1;
+        uint32_t op    = (hw1 >> 5) & 0xF;   /* hw1[8:5] */
+        uint32_t S     = (hw1 >> 4) & 1;
+        uint32_t Rn    = hw1 & 0xF;
+        uint32_t imm3  = (hw2 >> 12) & 0x7;
+        uint32_t Rd    = (hw2 >> 8) & 0xF;
+        uint32_t imm8  = hw2 & 0xFF;
+        uint32_t imm12 = (i << 11) | (imm3 << 8) | imm8;
+        uint32_t imm32 = thumb_expand_imm(imm12);
+
+        switch (op) {
+        case 0x0: { /* AND / TST (Rd=1111 S=1) */
+            uint32_t result = R(Rn) & imm32;
+            if (Rd != 0xF) R(Rd) = result;
+            if (S) update_nz(core, result);
+            return STATUS_OK;
+        }
+        case 0x1: { /* BIC */
+            uint32_t result = R(Rn) & ~imm32;
+            R(Rd) = result;
+            if (S) update_nz(core, result);
+            return STATUS_OK;
+        }
+        case 0x2: { /* ORR / MOV (Rn=1111) */
+            uint32_t result = (Rn == 0xF) ? imm32 : (R(Rn) | imm32);
+            R(Rd) = result;
+            if (S) update_nz(core, result);
+            return STATUS_OK;
+        }
+        case 0x3: { /* ORN / MVN (Rn=1111) */
+            uint32_t result = (Rn == 0xF) ? ~imm32 : (R(Rn) | ~imm32);
+            R(Rd) = result;
+            if (S) update_nz(core, result);
+            return STATUS_OK;
+        }
+        case 0x4: { /* EOR / TEQ (Rd=1111 S=1) */
+            uint32_t result = R(Rn) ^ imm32;
+            if (Rd != 0xF) R(Rd) = result;
+            if (S) update_nz(core, result);
+            return STATUS_OK;
+        }
+        case 0x8: { /* ADD / CMN (Rd=1111 S=1) */
+            uint32_t result = R(Rn) + imm32;
+            if (Rd != 0xF) R(Rd) = result;
+            if (S) update_flags_add(core, R(Rn), imm32, result);
+            return STATUS_OK;
+        }
+        case 0x9: { /* ADC */
+            uint32_t carry = (XPSR >> 29) & 1;
+            uint32_t result = R(Rn) + imm32 + carry;
+            R(Rd) = result;
+            if (S) update_flags_add(core, R(Rn), imm32, result);
+            return STATUS_OK;
+        }
+        case 0xA: { /* SBC */
+            uint32_t carry = (XPSR >> 29) & 1;
+            uint32_t result = R(Rn) - imm32 - (1 - carry);
+            R(Rd) = result;
+            if (S) update_flags_sub(core, R(Rn), imm32, result);
+            return STATUS_OK;
+        }
+        case 0xD: { /* SUB / CMP (Rd=1111 S=1) */
+            uint32_t result = R(Rn) - imm32;
+            if (Rd != 0xF) R(Rd) = result;
+            if (S) update_flags_sub(core, R(Rn), imm32, result);
+            return STATUS_OK;
+        }
+        case 0xE: { /* RSB */
+            uint32_t result = imm32 - R(Rn);
+            R(Rd) = result;
+            if (S) update_flags_sub(core, imm32, R(Rn), result);
+            return STATUS_OK;
+        }
+        default:
+            break;
+        }
     }
 
     fprintf(stderr, "Unimplemented 32-bit instruction: 0x%04X 0x%04X at PC=0x%08X\n",

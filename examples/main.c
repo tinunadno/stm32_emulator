@@ -16,7 +16,7 @@
 
 static void uart_init(void)
 {
-    USART1_CR1 = (1U << 13) | (1U << 3);  /* UE | TE */
+     USART1_CR1 = (1U << 13) | (1U << 3);  /* UE | TE */
 }
 
 static void uart_putc(char c)
