@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  keydb:
+    image: eqalpha/keydb:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - keydb_data:/data
+    command: ["keydb-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "keydb-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_DB: lab
+      POSTGRES_USER: lab
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lab -d lab"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      KEYDB_ADDR: keydb:6379
+      DB_DSN: postgres://lab:secret@postgres:5432/lab?sslmode=disable
+      LOG_LEVEL: info
+      ENV: production
+    depends_on:
+      keydb:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  keydb_data:
+  postgres_data:
