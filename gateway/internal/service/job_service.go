@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/awesoma/gateway/internal/models"
-	"github.com/awesoma/gateway/internal/repository"
 )
 
 // JobService defines the interface for job operations
@@ -17,14 +17,44 @@ type JobService interface {
 	ListJobsByUser(ctx context.Context, userID string, limit, offset int) ([]*models.Job, error)
 }
 
+// PostgresRepo interface for PostgreSQL operations
+type PostgresRepo interface {
+	CreateJob(ctx context.Context, job *models.Job) error
+	GetJob(ctx context.Context, jobID string) (*models.Job, error)
+	UpdateJobState(ctx context.Context, jobID string, state models.JobState, errorText *string) error
+	GetJobsByUser(ctx context.Context, userID string, limit, offset int) ([]*models.Job, error)
+}
+
+// KeyDBRepo interface for KeyDB operations
+type KeyDBRepo interface {
+	EnqueueJob(ctx context.Context, job *models.Job) error
+	GetJobHash(ctx context.Context, jobID string) (*JobHash, error)
+	CancelJob(ctx context.Context, jobID string) error
+	SendCommand(ctx context.Context, workerID string, command string, payload interface{}) error
+}
+
+// JobHash represents the job hash from KeyDB
+type JobHash struct {
+	State        string
+	UserID       string
+	SHA256       string
+	CreatedAt    string
+	Debug        bool
+	WorkerID     string
+	StartedAt    string
+	GDBPort      int
+	GDBHost      string
+	GDBConnected bool
+}
+
 // jobService implements JobService
 type jobService struct {
-	pgRepo *repository.PostgresRepository
-	keyDB  *repository.KeyDBRepository
+	pgRepo PostgresRepo
+	keyDB  KeyDBRepo
 }
 
 // NewJobService creates a new job service
-func NewJobService(pgRepo *repository.PostgresRepository, keyDB *repository.KeyDBRepository) JobService {
+func NewJobService(pgRepo PostgresRepo, keyDB KeyDBRepo) JobService {
 	return &jobService{
 		pgRepo: pgRepo,
 		keyDB:  keyDB,
@@ -54,7 +84,7 @@ func (s *jobService) GetJob(ctx context.Context, jobID string) (*models.Job, err
 	// First try to get from PostgreSQL (authoritative source)
 	job, err := s.pgRepo.GetJob(ctx, jobID)
 	if err != nil {
-		if errors.Is(err, repository.ErrJobNotFound) {
+		if errors.Is(err, ErrJobNotFound) {
 			return nil, ErrJobNotFound
 		}
 		return nil, fmt.Errorf("failed to get job: %w", err)
@@ -87,7 +117,7 @@ func (s *jobService) CancelJob(ctx context.Context, jobID string) error {
 	// Get current job state
 	job, err := s.pgRepo.GetJob(ctx, jobID)
 	if err != nil {
-		if errors.Is(err, repository.ErrJobNotFound) {
+		if errors.Is(err, ErrJobNotFound) {
 			return ErrJobNotFound
 		}
 		return fmt.Errorf("failed to get job: %w", err)
@@ -138,3 +168,8 @@ var (
 	ErrJobCannotBeCancelled = errors.New("job cannot be cancelled")
 	ErrUnauthorized         = errors.New("unauthorized access")
 )
+
+// Helper for time pointer
+func TimePtr(t time.Time) *time.Time {
+	return &t
+}

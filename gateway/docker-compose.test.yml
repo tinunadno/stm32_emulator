@@ -1,0 +1,29 @@
+# Minimal docker-compose for testing
+# Only databases needed for running tests
+version: '3.8'
+
+services:
+  keydb:
+    image: eqalpha/keydb:latest
+    ports:
+      - "6379:6379"
+    command: ["keydb-server", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "keydb-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_DB: lab_test
+      POSTGRES_USER: lab
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lab -d lab_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 3

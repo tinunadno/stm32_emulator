@@ -12,12 +12,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/go-chi/render"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/awesoma/gateway/internal/config"
 	"github.com/awesoma/gateway/internal/handlers"
-	"github.com/awesoma/gateway/internal/middleware"
+	appmiddleware "github.com/awesoma/gateway/internal/middleware"
+	"github.com/awesoma/gateway/internal/models"
 	"github.com/awesoma/gateway/internal/repository"
 	"github.com/awesoma/gateway/internal/service"
 	"github.com/awesoma/gateway/pkg/sse"
@@ -75,15 +77,17 @@ func main() {
 	})
 	defer keyDBClient.Close()
 
-	// Initialize services
-	jobService := service.NewJobService(pgRepo, keyDBRepo)
+	// Initialize services with adapters
+	jobService := service.NewJobService(
+		&postgresAdapter{repo: pgRepo},
+		&keydbAdapter{repo: keyDBRepo},
+	)
 
 	// Initialize SSE broker
 	sseBroker := sse.NewBroker()
 
 	// Initialize handlers
-	authMiddleware := middleware.NewAuthMiddleware(&cfg.Auth)
-	loggingMiddleware := middleware.NewLoggingMiddleware()
+	authMiddleware := appmiddleware.NewAuthMiddleware(&cfg.Auth)
 
 	baseURL := fmt.Sprintf("http://localhost:%d", cfg.Server.HTTPPort)
 	jobsHandler := handlers.NewJobsHandler(jobService, baseURL)
@@ -99,8 +103,15 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5))
 	r.Use(render.SetContentType(render.ContentTypeJSON))
-	r.Use(middleware.CORS())
-	r.Use(loggingMiddleware.Logger())
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-API-Key", "X-Request-ID"},
+		ExposedHeaders:   []string{"Link", "X-Request-ID"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
+	r.Use(middleware.Logger)
 
 	// Timeout middleware
 	r.Use(middleware.Timeout(60 * time.Second))
@@ -218,4 +229,61 @@ func main() {
 	}
 
 	log.Println("Servers stopped")
+}
+
+// Adapter types to convert repository types to service interfaces
+
+type postgresAdapter struct {
+	repo *repository.PostgresRepository
+}
+
+func (a *postgresAdapter) CreateJob(ctx context.Context, job *models.Job) error {
+	return a.repo.CreateJob(ctx, job)
+}
+
+func (a *postgresAdapter) GetJob(ctx context.Context, jobID string) (*models.Job, error) {
+	return a.repo.GetJob(ctx, jobID)
+}
+
+func (a *postgresAdapter) UpdateJobState(ctx context.Context, jobID string, state models.JobState, errorText *string) error {
+	return a.repo.UpdateJobState(ctx, jobID, state, errorText)
+}
+
+func (a *postgresAdapter) GetJobsByUser(ctx context.Context, userID string, limit, offset int) ([]*models.Job, error) {
+	return a.repo.GetJobsByUser(ctx, userID, limit, offset)
+}
+
+type keydbAdapter struct {
+	repo *repository.KeyDBRepository
+}
+
+func (a *keydbAdapter) EnqueueJob(ctx context.Context, job *models.Job) error {
+	return a.repo.EnqueueJob(ctx, job)
+}
+
+func (a *keydbAdapter) GetJobHash(ctx context.Context, jobID string) (*service.JobHash, error) {
+	hash, err := a.repo.GetJobHash(ctx, jobID)
+	if err != nil {
+		return nil, err
+	}
+	return &service.JobHash{
+		State:        hash.State,
+		UserID:       hash.UserID,
+		SHA256:       hash.SHA256,
+		CreatedAt:    hash.CreatedAt,
+		Debug:        hash.Debug,
+		WorkerID:     hash.WorkerID,
+		StartedAt:    hash.StartedAt,
+		GDBPort:      hash.GDBPort,
+		GDBHost:      hash.GDBHost,
+		GDBConnected: hash.GDBConnected,
+	}, nil
+}
+
+func (a *keydbAdapter) CancelJob(ctx context.Context, jobID string) error {
+	return a.repo.CancelJob(ctx, jobID)
+}
+
+func (a *keydbAdapter) SendCommand(ctx context.Context, workerID string, command string, payload interface{}) error {
+	return a.repo.SendCommand(ctx, workerID, command, payload)
 }

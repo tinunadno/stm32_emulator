@@ -27,9 +27,18 @@ deps:
 	$(GOMOD) download
 	$(GOMOD) tidy
 
-# Run tests
+# Run unit tests (no external dependencies)
 test:
-	$(GOTEST) -v -race ./...
+	$(GOTEST) -v -race -short ./...
+
+# Run integration tests (requires databases)
+test-integration:
+	$(GOTEST) -v -race -tags=integration ./...
+
+# Run tests with coverage
+test-coverage:
+	$(GOTEST) -v -race -coverprofile=coverage.out ./...
+	$(GOCMD) tool cover -html=coverage.out -o coverage.html
 
 # Clean build artifacts
 clean:
@@ -68,19 +77,33 @@ lint:
 swagger:
 	swag init -g cmd/gateway/main.go -o ./docs
 
+# Start test databases
+test-db-up:
+	docker-compose -f docker-compose.test.yml up -d
+	@echo "Waiting for databases to be ready..."
+	@sleep 5
+
+# Stop test databases
+test-db-down:
+	docker-compose -f docker-compose.test.yml down -v
+
 # Help
 help:
 	@echo "Available targets:"
-	@echo "  build        - Build the binary"
-	@echo "  run          - Build and run the service"
-	@echo "  deps         - Download dependencies"
-	@echo "  test         - Run tests"
-	@echo "  clean        - Clean build artifacts"
-	@echo "  docker-build - Build Docker image"
-	@echo "  docker-up    - Start with docker-compose"
-	@echo "  docker-down  - Stop docker-compose"
-	@echo "  docker-logs  - View container logs"
-	@echo "  dev          - Run in development mode"
-	@echo "  fmt          - Format code"
-	@echo "  lint         - Lint code"
-	@echo "  swagger      - Generate swagger docs"
+	@echo "  build            - Build the binary"
+	@echo "  run              - Build and run the service"
+	@echo "  deps             - Download dependencies"
+	@echo "  test             - Run unit tests (no DB required)"
+	@echo "  test-integration - Run integration tests (requires DB)"
+	@echo "  test-coverage    - Run tests with coverage report"
+	@echo "  test-db-up       - Start test databases"
+	@echo "  test-db-down     - Stop test databases"
+	@echo "  clean            - Clean build artifacts"
+	@echo "  docker-build     - Build Docker image"
+	@echo "  docker-up        - Start with docker-compose"
+	@echo "  docker-down      - Stop docker-compose"
+	@echo "  docker-logs      - View container logs"
+	@echo "  dev              - Run in development mode"
+	@echo "  fmt              - Format code"
+	@echo "  lint             - Lint code"
+	@echo "  swagger          - Generate swagger docs"

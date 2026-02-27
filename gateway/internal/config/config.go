@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -90,26 +91,11 @@ func applyEnvOverrides(cfg *Config) {
 		cfg.Postgres.DSN = dsn
 	}
 	if port := os.Getenv("HTTP_PORT"); port != "" {
-		cfg.Server.HTTPPort = parseInt(port, cfg.Server.HTTPPort)
+		if val, err := strconv.Atoi(port); err == nil {
+			cfg.Server.HTTPPort = val
+		}
 	}
 	if level := os.Getenv("LOG_LEVEL"); level != "" {
 		cfg.Logging.Level = level
 	}
-}
-
-func parseInt(s string, defaultVal int) int {
-	var val int
-	if _, err := parseIntFromString(s); err == nil {
-		val = int(parseIntFromString(s))
-	}
-	return val
-}
-
-func parseIntFromString(s string) (int, error) {
-	var val int
-	_, err := os.Stat(s)
-	if err != nil {
-		return 0, err
-	}
-	return val, nil
 }
