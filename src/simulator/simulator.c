@@ -44,6 +44,10 @@ void simulator_init(Simulator* sim)
     uart_init(&sim->uart, &sim->nvic, USART1_IRQ);
     uart_set_output(&sim->uart, default_uart_output, NULL);
 
+    /* Attach logger to UART */
+    uart_logger_init(&sim->uart_logger);
+    sim->uart.logger = &sim->uart_logger;
+
     /* Register peripherals on bus */
     Peripheral tim_p = timer_as_peripheral(&sim->timer);
     Peripheral uart_p = uart_as_peripheral(&sim->uart);

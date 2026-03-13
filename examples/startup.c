@@ -8,6 +8,7 @@ extern uint32_t _sbss;
 extern uint32_t _ebss;
 
 void Reset_Handler(void)
+
 {
     /* Zero out .bss section */
     for (uint32_t* p = &_sbss; p < &_ebss; p++)

@@ -5,6 +5,7 @@
 #include "common/status.h"
 #include "nvic/nvic.h"
 #include "peripherals/peripheral.h"
+#include "peripherals/uart/uart_logger.h"
 
 /* USART register offsets (from base 0x40013800) */
 #define UART_SR_OFFSET   0x00
@@ -51,6 +52,8 @@ typedef struct {
     /* Output callback */
     UartOutputFn output_fn;
     void*        output_user_data;
+    /* Activity logger (owned by Simulator, pointer set after init) */
+    UartLogger*  logger;
 } UartState;
 
 void uart_init(UartState* uart, NVIC* nvic, uint32_t irq);

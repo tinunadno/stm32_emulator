@@ -1,4 +1,4 @@
-CC       = gcc
+CC       ?= clang
 CFLAGS   = -Wall -Wextra -Wpedantic -std=c11 -I. -g -O0
 LDFLAGS  =
 TARGET   = stm32sim
@@ -10,6 +10,7 @@ LIB_SRCS = core/core.c \
            bus/bus.c \
            peripherals/timer/timer.c \
            peripherals/uart/uart.c \
+           peripherals/uart/uart_logger.c \
            debugger/debugger.c \
            simulator/simulator.c \
            ui/ui.c \

@@ -10,6 +10,7 @@
 #include "peripherals/peripheral.h"
 #include "peripherals/timer/timer.h"
 #include "peripherals/uart/uart.h"
+#include "peripherals/uart/uart_logger.h"
 
 #define SIM_MAX_PERIPHERALS 16
 
@@ -31,6 +32,7 @@ typedef struct {
     Debugger    debugger;
     TimerState  timer;
     UartState   uart;
+    UartLogger  uart_logger;
 
     /* Registered tickable peripherals */
     Peripheral  peripherals[SIM_MAX_PERIPHERALS];

@@ -5,7 +5,7 @@
             "label": "Build: emulator",
             "type": "shell",
             "command": "make",
-            "args": ["-C", "${workspaceFolder}/src"],
+            "args": ["-C", "${workspaceFolder}/src", "CC=clang"],
             "group": { "kind": "build", "isDefault": true },
             "presentation": { "reveal": "always", "panel": "shared" }
         },
@@ -17,6 +17,13 @@
             "presentation": { "reveal": "always", "panel": "shared" }
         },
         {
+            "label": "UART: Open Diagram",
+            "type": "shell",
+            "command": "open",
+            "args": ["${workspaceFolder}/uart_diagram.html"],
+            "presentation": { "reveal": "silent", "panel": "shared" }
+        },
+        {
             "label": "GDB server: start",
             "type": "shell",
             "command": "${workspaceFolder}/src/stm32sim",
@@ -25,6 +32,7 @@
                 "--gdb"
             ],
             "isBackground": true,
+            "dependsOn": "Build: emulator",
             "presentation": {
                 "reveal": "always",
                 "panel": "dedicated",
