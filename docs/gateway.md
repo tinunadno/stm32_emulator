@@ -129,31 +129,32 @@
 - Проброс информации о GDB-порте клиенту через SSE
 - **НЕ участвует в GDB-трафике** (прямое соединение клиент-воркер)
 
-### 3.2 Simulator Worker с GDB-поддержкой (Go)
+### 3.2 Simulator Worker с GDB-поддержкой
 
 | Аспект | Детали |
 |--------|--------|
-| **Язык** | Go 1.21+ |
-| **Порт** | динамический (GDB), обычно 1234-1244 |
+| **Язык** | Go 1.21+ (обертка) + C (симулятор) |
+| **Порт** | динамический (GDB), по умолчанию 3333 |
 | **Concurrency** | 1 задача на воркер (для отладки критично) |
 
 **Обязанности:**
 
 - Heartbeat регистрация в KeyDB
 - Pull задач из очереди `jobs:pending`
-- **Для debug-задач**: запуск симулятора с встроенным GDB-сервером
+- **Для debug-задач**: запуск C-симулятора с встроенным GDB-сервером (gdb_stub)
 - **Для обычных задач**: запуск без отладки
 - Публикация событий (логи, телеметрия, статусы)
 - Обработка команд остановки
 - **Проброс GDB-соединения** между симулятором и клиентом
 
-### 3.3 GDB-сервер (встроенный в симулятор)
+### 3.3 GDB-сервер (встроенный в симулятор на C)
 
 | Аспект | Детали |
 |--------|--------|
-| **Реализация** | Встроенный gdbstub или внешний gdbserver |
-| **Протокол** | GDB Remote Serial Protocol |
-| **Порт** | TCP, динамический (рандомный из диапазона) |
+| **Реализация** | Встроенный gdbstub на C (см. `src/gdb_stub/gdb_stub.c`) |
+| **Протокол** | GDB Remote Serial Protocol (RSP) |
+| **Порт** | TCP, по умолчанию 3333 (`GDB_STUB_DEFAULT_PORT`) |
+| **Target** | ARM Cortex-M3 (регистры r0-r15, xpsr) |
 
 ### 3.4 KeyDB (Шина данных)
 
@@ -230,7 +231,7 @@
   "debug": true,
   "gdb": {
     "host": "worker-01.lab.internal",
-    "port": 12345,
+    "port": 3333,
     "protocol": "tcp"
   },
   "timestamp": "2024-01-01T12:00:05Z"
@@ -252,8 +253,8 @@ Response:
   "job_id": "01H2X5J4K6",
   "debug_enabled": true,
   "gdb_host": "worker-01.lab.internal",
-  "gdb_port": 12345,
-  "connection_string": "target remote worker-01.lab.internal:12345",
+  "gdb_port": 3333,
+  "connection_string": "target remote worker-01.lab.internal:3333",
   "status": "listening",
   "connected": false
 }
@@ -292,12 +293,12 @@ EXEC
 ### 5.3 Воркер назначает порт
 
 ```redis
-# Воркер забрал задание, запустил GDB-сервер на порту 12345
-HSET job:01H2X5J4K6 
-    state=running 
-    worker_id=worker-01 
+# Воркер забрал задание, запустил GDB-сервер на порту 3333
+HSET job:01H2X5J4K6
+    state=running
+    worker_id=worker-01
     started_at=2024-01-01T12:00:05Z
-    gdb_port=12345
+    gdb_port=3333
     gdb_host=192.168.1.100
     gdb_connected=false
 
@@ -305,7 +306,7 @@ PUBLISH events:job:01H2X5J4K6 '{
     "type":"status",
     "state":"running",
     "debug":true,
-    "gdb":{"host":"192.168.1.100","port":12345}
+    "gdb":{"host":"192.168.1.100","port":3333}
 }'
 ```
 
@@ -334,88 +335,47 @@ PUBLISH events:job:01H2X5J4K6 '{
 └─────────────────────────────────────────────────┘
 ```
 
-### 6.2 Реализация GDB-сервера в симуляторе
+### 6.2 Архитектура GDB-сервера (C)
 
-```go
-type GDBServer struct {
-    port        int
-    simulator   *Simulator
-    connections chan net.Conn
-    stopChan    chan bool
-}
+GDB-сервер реализован на C в `src/gdb_stub/gdb_stub.c`. Ключевые особенности:
 
-func (s *Simulator) StartWithGDB(port int) error {
-    // Запускаем GDB-сервер
-    gdbServer := &GDBServer{
-        port:      port,
-        simulator: s,
-    }
-    
-    go gdbServer.Listen()
-    
-    // Ожидаем подключения отладчика (опционально)
-    select {
-    case <-gdbServer.connections:
-        log.Info("GDB client connected")
-    case <-time.After(30 * time.Second):
-        // Продолжаем даже без отладчика
-        log.Warn("No GDB client connected within timeout")
-    }
-    
-    return nil
-}
+- **Протокол:** GDB Remote Serial Protocol (RSP)
+- **Порт по умолчанию:** 3333 (`GDB_STUB_DEFAULT_PORT`)
+- **Target:** ARM Cortex-M3 (17 регистров: r0-r15, xpsr)
+- **Breakpoints:** до 64 точек останова
 
-func (g *GDBServer) Listen() {
-    listener, err := net.Listen("tcp", fmt.Sprintf(":%d", g.port))
-    if err != nil {
-        log.Error(err)
-        return
-    }
-    
-    for {
-        conn, err := listener.Accept()
-        if err != nil {
-            return
-        }
-        
-        // Обрабатываем GDB протокол
-        go g.handleGDBConnection(conn)
-    }
-}
+```c
+// gdb_stub.h - API GDB stub
+typedef struct {
+    Simulator* sim;
+    int        server_fd;
+    int        client_fd;
+    int        port;
+} GdbStub;
 
-func (g *GDBServer) handleGDBConnection(conn net.Conn) {
-    defer conn.Close()
-    
-    // GDB Remote Serial Protocol implementation
-    buffer := make([]byte, 4096)
-    for {
-        n, err := conn.Read(buffer)
-        if err != nil {
-            return
-        }
-        
-        // Парсим команды GDB ($g, $m, $p, etc)
-        cmd := string(buffer[:n])
-        response := g.processGDBCommand(cmd)
-        
-        conn.Write([]byte(response))
-    }
-}
+void gdb_stub_init(GdbStub* stub, Simulator* sim, int port);
+void gdb_stub_run(GdbStub* stub);   // blocks, accepts connections
+void gdb_stub_close(GdbStub* stub);
 ```
 
-### 6.3 Интеграция с симулятором
+### 6.3 Интеграция Go-воркера с C-симулятором
+
+Go-воркер запускает C-симулятор как subprocess:
 
 ```go
-func (w *Worker) executeDebugJob(ctx context.Context, jobID string) {
-    // Выбираем случайный порт из диапазона
-    port := w.getFreePort(1234, 1244)
+func (w *Worker) executeDebugJob(ctx context.Context, jobID string, firmwarePath string, clientIP string) {
+    // Выбираем свободный порт из диапазона
+    port := w.getFreePort(3333, 3343)
+    
+    // Настраиваем firewall для защиты GDB-порта
+    setupGDBFirewall(port, []string{clientIP})
+    defer cleanupGDBFirewall(port, clientIP)
     
     // Обновляем статус с информацией о GDB
     w.redis.HSet(ctx, "job:"+jobID,
         "state", "running",
         "gdb_port", port,
-        "gdb_host", w.getExternalIP(),
-        "gdb_connected", false)
+        "gdb_host", w.getExternalIP())
     
     // Публикуем событие для клиента
     w.publishEvent(jobID, map[string]interface{}{
@@ -428,53 +388,50 @@ func (w *Worker) executeDebugJob(ctx context.Context, jobID string) {
         },
     })
     
-    // Запускаем симулятор с GDB
-    sim := NewSimulator(jobID)
+    // Запускаем C-симулятор с GDB stub
+    cmd := exec.CommandContext(ctx, w.config.SimulatorBinary,
+        "-firmware", firmwarePath,
+        "-gdb-port", strconv.Itoa(port))
     
-    // Канал для отслеживания GDB-подключения
-    gdbConnected := make(chan bool)
+    // Перенаправляем stdout симулятора в события
+    stdout, _ := cmd.StdoutPipe()
+    go w.streamOutputToEvents(jobID, stdout)
     
-    // Запускаем GDB-сервер в отдельной горутине
-    go func() {
-        err := sim.StartGDB(port)
-        if err == nil {
-            gdbConnected <- true
-            w.redis.HSet(ctx, "job:"+jobID, "gdb_connected", true)
-        }
-    }()
-    
-    // Ждем подключения отладчика или таймаут
-    select {
-    case <-gdbConnected:
-        log.Info("Debugger connected, starting simulation")
-    case <-time.After(30 * time.Second):
-        log.Warn("No debugger connected, starting anyway")
+    // Запускаем процесс
+    if err := cmd.Start(); err != nil {
+        w.finishJob(ctx, jobID, err)
+        return
     }
     
-    // Запускаем симуляцию (может быть заблокирована отладчиком)
-    err := sim.Run()
-    
-    // Завершаем
+    // Ждем завершения процесса
+    err := cmd.Wait()
     w.finishJob(ctx, jobID, err)
 }
-```
 
-### 6.4 Безопасность GDB-подключений
-
-```go
-// Опционально: аутентификация GDB-клиента
-func (g *GDBServer) authenticate(conn net.Conn) bool {
-    // Отправляем запрос пароля
-    conn.Write([]byte("$password#00"))
-    
-    buffer := make([]byte, 256)
-    n, _ := conn.Read(buffer)
-    
-    // Проверяем пароль из метаданных задания
-    expected := g.simulator.jobData["gdb_password"]
-    return strings.TrimSpace(string(buffer[:n])) == expected
+func (w *Worker) streamOutputToEvents(jobID string, reader io.Reader) {
+    scanner := bufio.NewScanner(reader)
+    for scanner.Scan() {
+        line := scanner.Text()
+        w.publishEvent(jobID, map[string]interface{}{
+            "type": "log",
+            "message": line,
+        })
+    }
 }
 ```
+
+### 6.4 Командная строка симулятора
+
+C-симулятор принимает следующие аргументы:
+
+```bash
+./stm32sim -firmware ./firmware.bin -gdb-port 3333
+```
+
+| Флаг | Описание |
+|------|----------|
+| `-firmware` | Путь к бинарному файлу прошивки |
+| `-gdb-port` | TCP порт для GDB RSP (по умолчанию 3333) |
 
 ---
 
@@ -489,9 +446,9 @@ func (g *GDBServer) authenticate(conn net.Conn) bool {
 3. **Запускает GDB локально** с тем же бинарником (должен быть собран с отладочными символами):
 
    ```bash
-   $ gdb ./firmware.elf
-   (gdb) target remote worker-01.lab.internal:12345
-   Remote debugging using worker-01.lab.internal:12345
+   $ arm-none-eabi-gdb ./firmware.elf
+   (gdb) target remote worker-01.lab.internal:3333
+   Remote debugging using worker-01.lab.internal:3333
    0x08000134 in main ()
    (gdb) break main.c:42
    (gdb) continue
@@ -514,13 +471,13 @@ func (g *GDBServer) authenticate(conn net.Conn) bool {
 ### 7.2 Пример сессии GDB
 
 ```bash
-$ gdb build/firmware.elf
-GNU gdb (Ubuntu 12.1-0ubuntu1) 12.1
+$ arm-none-eabi-gdb build/firmware.elf
+GNU gdb (GNU Arm Embedded Toolchain) 12.1
 ...
 Reading symbols from build/firmware.elf...
 
-(gdb) target remote 192.168.1.100:12345
-Remote debugging using 192.168.1.100:12345
+(gdb) target remote 192.168.1.100:3333
+Remote debugging using 192.168.1.100:3333
 0x08000134 in Reset_Handler ()
 
 (gdb) break main
@@ -644,30 +601,40 @@ func setupGDBFirewall(workerIP string, port int, allowedIPs []string) {
 
 ### 9.2 Аутентификация GDB-клиентов
 
-Варианты:
+**Важно:** C-симулятор (`gdb_stub.c`) не поддерживает встроенную аутентификацию.
+Безопасность обеспечивается на уровне сети:
 
-1. **IP whitelist** (только IP клиента, который создал задание)
-2. **GDB-пароль** (генерируется и передается через SSE)
-3. **SSH-туннель** (клиент подключается через SSH-прокси)
+1. **IP whitelist** (только IP клиента, который создал задание) - реализуется через iptables
+2. **SSH-туннель** (клиент подключается через SSH-прокси)
+3. **VPN** (доступ только из корпоративной сети)
 
-Пример с паролем:
+Пример настройки iptables в Go-воркере:
 
 ```go
-func (w *Worker) generateGDBPassword() string {
-    bytes := make([]byte, 16)
-    rand.Read(bytes)
-    return hex.EncodeToString(bytes)
+// Firewall rules (пример для iptables)
+func setupGDBFirewall(port int, allowedIPs []string) {
+    // Разрешаем доступ только для IP клиента, создавшего задание
+    for _, ip := range allowedIPs {
+        exec.Command("iptables", "-A", "INPUT",
+            "-p", "tcp", "--dport", strconv.Itoa(port),
+            "-s", ip, "-j", "ACCEPT").Run()
+    }
+    // Закрываем доступ для всех остальных
+    exec.Command("iptables", "-A", "INPUT",
+        "-p", "tcp", "--dport", strconv.Itoa(port),
+        "-j", "DROP").Run()
 }
 
-// При создании задания с debug
-password := generateGDBPassword()
-redis.HSet(ctx, "job:"+jobID, "gdb_password", password)
-
-// Передаем клиенту через SSE
-publishEvent(jobID, map[string]interface{}{
-    "type": "gdb_auth",
-    "password": password,
-})
+func (w *Worker) executeDebugJob(ctx context.Context, jobID string, clientIP string) {
+    port := w.getFreePort(3333, 3343)
+    
+    // Настраиваем firewall перед запуском симулятора
+    setupGDBFirewall(port, []string{clientIP})
+    defer cleanupGDBFirewall(port, clientIP)
+    
+    // Запускаем C-симулятор
+    // ...
+}
 ```
 
 ### 9.3 Ограничения по времени
@@ -744,7 +711,7 @@ func (g *GDBServer) traceGDBCommand(cmd string) {
   "job_id": "01H2X5J4K6",
   "event": "gdb_connected",
   "client_ip": "203.0.113.42",
-  "gdb_port": 12345
+  "gdb_port": 3333
 }
 
 {
@@ -768,7 +735,7 @@ func (g *GDBServer) traceGDBCommand(cmd string) {
 ┌─────────────────┐      ┌──────────────────┐
 │   Разработчик   │      │     Воркер       │
 │   (GDB клиент)  │─────▶│  (GDB сервер)    │
-│   IP: 203.0.113.42    │  Port: 12345      │
+│   IP: 203.0.113.42    │  Port: 3333+      │
 └─────────────────┘      └──────────────────┘
         │                         │
         │                         │
@@ -776,7 +743,7 @@ func (g *GDBServer) traceGDBCommand(cmd string) {
 ┌─────────────────────────────────────────┐
 │           Требования к сети             │
 │  - Прямая маршрутизация до воркера      │
-│  - Открытые порты 1234-1244 (TCP)       │
+│  - Открытые порты 3333-3343 (TCP)       │
 │  - Firewall rules для конкретных IP     │
 │  - Возможно, VPN/SSH туннель            │
 └─────────────────────────────────────────┘
@@ -793,24 +760,19 @@ worker:
 debug:
   enabled: true
   gdb_port_range:
-    start: 1234
-    end: 1244
+    start: 3333      # GDB_STUB_DEFAULT_PORT
+    end: 3343
   max_debug_time: 1h
   idle_timeout: 5m
-  authentication:
-    enabled: true
-    type: "password"  # или "ip_whitelist"
-  
-  # Если используем IP whitelist
-  ip_whitelist:
-    enabled: true
-    source_header: "X-Forwarded-For"  # или "X-Real-IP"
+  # Примечание: аутентификация на уровне firewall/VPN,
+  # C-симулятор не поддерживает password auth
     
   network:
     public_ip: "auto"  # или конкретный IP для внешнего доступа
     bind_interface: "eth0"
 
 simulator:
+  binary: "./stm32sim"  # Путь к C-симулятору
   max_memory_mb: 256
   debug_timeout_seconds: 3600  # 1 час для отладки
 ```
@@ -849,7 +811,7 @@ services:
     build: ./worker
     # Пробрасываем диапазон портов для GDB
     ports:
-      - "1234-1244:1234-1244"
+      - "3333-3343:3333-3343"
     # Важно: network_mode host для реального IP
     network_mode: host
     environment:
@@ -857,8 +819,11 @@ services:
       WORKER_ID: ${HOSTNAME}
       DEBUG_ENABLED: "true"
       PUBLIC_IP: ${PUBLIC_IP}  # внешний IP для GDB
+      SIMULATOR_BINARY: "/app/stm32sim"
     depends_on:
       - keydb
+    volumes:
+      - ./stm32sim:/app/stm32sim:ro  # C-симулятор
     # Запускаем несколько экземпляров
     deploy:
       replicas: 3
@@ -870,94 +835,133 @@ services:
 
 ### 12.1 Протокол GDB Remote Serial Protocol
 
-Ключевые команды, которые должен поддерживать симулятор:
+Команды, поддерживаемые симулятором (реализация в `src/gdb_stub/gdb_stub.c`):
 
 | Команда | Описание | Ответ |
 |---------|----------|-------|
-| `g` | Read registers | `xxxxxxxx...` (hex) |
-| `G` | Write registers | `OK` |
-| `m addr,len` | Read memory | hex bytes |
-| `M addr,len:XX...` | Write memory | `OK` |
-| `c` | Continue | `S05` (signal) |
-| `s` | Step | `S05` |
-| `z type,addr,kind` | Remove breakpoint | `OK` |
-| `Z type,addr,kind` | Insert breakpoint | `OK` |
-| `qSupported` | Query supported features | `PacketSize=3fff;qXfer:features:read+` |
 | `?` | Last signal | `S05` |
+| `g` | Read all registers (r0-r15, xpsr) | 136 hex chars |
+| `G data` | Write all registers | `OK` |
+| `p n` | Read single register n | 8 hex chars |
+| `P n=vvvv` | Write single register | `OK` |
+| `m addr,len` | Read memory (max 1024 bytes) | hex bytes |
+| `M addr,len:XX...` | Write memory | `OK` |
+| `c [addr]` | Continue (until breakpoint/interrupt) | `S05` |
+| `s [addr]` | Single step | `S05` |
+| `Z0,addr,kind` | Insert software breakpoint | `OK` / `E01` |
+| `z0,addr,kind` | Remove software breakpoint | `OK` / `E01` |
+| `H op` | Thread select (stubbed) | `OK` |
+| `T id` | Is thread alive? | `OK` |
+| `D` | Detach | `OK` |
+| `k` | Kill | (connection closed) |
+| `qSupported` | Query features | `PacketSize=1000;qXfer:features:read+` |
+| `qXfer:features:read:target.xml:` | Read target XML | Cortex-M3 description |
+| `qRcmd,hex` | Monitor command (hex-encoded) | `OK` |
 
-### 12.2 Интеграция с эмулятором (пример для QEMU)
+### 12.2 Monitor Commands (qRcmd)
+
+Симулятор поддерживает следующие monitor-команды через GDB:
+
+```
+(gdb) monitor halt        # Остановить симуляцию
+(gdb) monitor reset       # Сброс симулятора
+(gdb) monitor reset halt  # Сброс и остановка
+```
+
+### 12.3 Target XML (Cortex-M3)
+
+GDB stub возвращает XML-описание целевой архитектуры:
+
+```xml
+<?xml version="1.0"?>
+<target version="1.0">
+  <architecture>arm</architecture>
+  <feature name="org.gnu.gdb.arm.m-profile">
+    <reg name="r0"  bitsize="32" regnum="0"/>
+    <reg name="r1"  bitsize="32" regnum="1"/>
+    ...
+    <reg name="pc"  bitsize="32" regnum="15" type="code_ptr"/>
+    <reg name="xpsr" bitsize="32" regnum="16"/>
+  </feature>
+</target>
+```
+
+### 12.4 Архитектура симулятора (C)
+
+Симулятор реализован на C и состоит из следующих компонентов:
+
+```
+src/
+├── core/          # ARM Cortex-M3 ядро (Thumb инструкции)
+├── memory/        # Flash, SRAM
+├── bus/           # Шина для memory-mapped I/O
+├── nvic/          # Nested Vectored Interrupt Controller
+├── debugger/      # Breakpoint manager (до 64 точек)
+├── gdb_stub/      # GDB RSP сервер
+├── peripherals/   # UART, Timer
+└── simulator/     # Главный оркестратор
+```
+
+**Интеграция Go-воркера с C-симулятором:**
 
 ```go
-// Если используем QEMU как бэкенд
-func (s *Simulator) startQEMUWithGDB(port int) error {
-    cmd := exec.Command("qemu-system-arm",
-        "-kernel", s.binaryPath,
-        "-machine", "stm32-p103",
-        "-nographic",
-        "-s", fmt.Sprintf("-tcp::%d", port),  // QEMU GDB stub
-        "-S",  // Остановиться до подключения GDB
-    )
+// Воркер запускает C-симулятор как subprocess
+func (w *Worker) executeDebugJob(ctx context.Context, jobID string, firmwarePath string) error {
+    // Выбираем свободный порт для GDB
+    port := w.getFreePort(3333, 3343)
     
-    // Запускаем QEMU
-    err := cmd.Start()
+    // Обновляем статус с информацией о GDB
+    w.redis.HSet(ctx, "job:"+jobID,
+        "state", "running",
+        "gdb_port", port,
+        "gdb_host", w.getExternalIP())
     
-    // QEMU сам реализует GDB stub на порту
-    return err
+    // Публикуем событие для клиента
+    w.publishEvent(jobID, map[string]interface{}{
+        "type": "status",
+        "state": "running",
+        "debug": true,
+        "gdb": map[string]interface{}{
+            "host": w.getExternalIP(),
+            "port": port,
+        },
+    })
+    
+    // Запускаем C-симулятор с GDB stub
+    cmd := exec.CommandContext(ctx, "./stm32sim",
+        "-firmware", firmwarePath,
+        "-gdb-port", strconv.Itoa(port))
+    
+    // Перенаправляем логи симулятора в события
+    stdout, _ := cmd.StdoutPipe()
+    go w.streamOutput(jobID, stdout)
+    
+    return cmd.Run()
 }
 ```
 
-### 12.3 Обработка сигналов
+### 12.5 Сборка C-симулятора
 
-```go
-// Маппинг сигналов для GDB
-var signalMap = map[int]string{
-    5:  "SIGTRAP",  // breakpoint
-    11: "SIGSEGV",  // segfault
-    15: "SIGTERM",  // terminated
-}
+```makefile
+# Makefile для симулятора
+CC = gcc
+CFLAGS = -Wall -Wextra -O2 -g
 
-func (g *GDBServer) handleSignal(sig int) string {
-    return fmt.Sprintf("S%02x", sig)
-}
-```
+SRCS = src/main.c src/core/core.c src/memory/memory.c src/bus/bus.c \
+       src/nvic/nvic.c src/debugger/debugger.c src/gdb_stub/gdb_stub.c \
+       src/simulator/simulator.c src/peripherals/timer/timer.c \
+       src/peripherals/uart/uart.c src/ui/ui.c
 
-### 12.4 Пример реализации gdbstub (минимальный)
+OBJS = $(SRCS:.c=.o)
 
-```go
-// Минимальный gdbstub для встраивания в симулятор
-type GDBStub struct {
-    conn     net.Conn
-    sim      *Simulator
-    breakpoints map[uint32]bool
-}
+stm32sim: $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $^
 
-func (g *GDBStub) handlePacket(packet string) string {
-    switch packet[0] {
-    case 'g': // Read registers
-        return g.readRegisters()
-    case 'G': // Write registers
-        return g.writeRegisters(packet[1:])
-    case 'm': // Read memory
-        // m addr,len
-        parts := strings.Split(packet[1:], ",")
-        addr, _ := strconv.ParseUint(parts[0], 16, 32)
-        length, _ := strconv.ParseUint(parts[1], 16, 32)
-        return g.readMemory(uint32(addr), int(length))
-    case 'c': // Continue
-        g.sim.Continue()
-        return "" // Wait for stop
-    case 's': // Step
-        g.sim.Step()
-        return "S05" // SIGTRAP
-    case 'Z': // Insert breakpoint
-        // Z0,addr,kind
-        return "OK"
-    case 'z': // Remove breakpoint
-        return "OK"
-    default:
-        return ""
-    }
-}
+%.o: %.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+clean:
+	rm -f $(OBJS) stm32sim
 ```
 
 ---
@@ -1000,8 +1004,8 @@ curl -H "X-API-Key: lab_apikey_123" \
 
 ```bash
 # Локально, с тем же бинарником (должен быть с символами)
-gdb ./firmware.elf
-(gdb) target remote 203.0.113.100:12345
+arm-none-eabi-gdb ./firmware.elf
+(gdb) target remote 203.0.113.100:3333
 (gdb) break main
 (gdb) continue
 ```
