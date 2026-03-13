@@ -1,2 +1,3 @@
 *.o
 src/stm32sim
+gateway/cmd/gateway/gateway
