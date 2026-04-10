@@ -91,7 +91,9 @@ Status uart_write(void* ctx, uint32_t offset, uint32_t value, uint8_t size)
         break;
 
     case UART_DR_OFFSET:
-        /* Writing DR starts a transmission */
+        /* Writing DR loads the transmit buffer. Clear TXE (buffer no longer
+         * empty) and TC (transmission not yet complete). Output is performed
+         * in uart_tick (next cycle), which restores both flags. */
         if (uart->cr1 & UART_CR1_UE) {
             uart->tx_char    = (uint8_t)(value & 0xFF);
             uart->tx_pending = 1;

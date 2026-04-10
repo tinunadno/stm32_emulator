@@ -1,0 +1,44 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make -C /Users/kirillsleptsov/stm32_emulator/src CC=clang)",
+      "Bash(make -C /Users/kirillsleptsov/stm32_emulator/src CC=clang test)",
+      "Bash(./test_runner)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(lldb ./test_runner --batch -o run)",
+      "Bash(lldb ./test_runner --batch -o run -o \"bt\")",
+      "Bash(lldb ./test_runner -b -o \"run\" -o \"thread backtrace\")",
+      "Bash(lldb test_runner -b -o \"run\" -o \"bt all\")",
+      "Bash(clang -Wall -Wextra -Wpedantic -std=c11 -I. -g -O0 -fsanitize=address -o test_runner_asan tests/test_main.c tests/test_nvic.c tests/test_memory.c tests/test_bus.c tests/test_timer.c tests/test_systick.c tests/test_uart.c tests/test_core.c tests/test_debugger.c tests/test_integration.c core/core.c nvic/nvic.c memory/memory.c bus/bus.c events/event_queue.c peripherals/timer/timer.c peripherals/systick/systick.c peripherals/uart/uart.c peripherals/uart/uart_logger.c debugger/debugger.c simulator/simulator.c ui/ui.c gdb_stub/gdb_stub.c)",
+      "Bash(./test_runner_asan)",
+      "Bash(make CC=clang test)",
+      "Bash(make -C /Users/kirillsleptsov/stm32_emulator/src CC=clang clean test)",
+      "Bash(src/stm32sim examples/firmware.bin)",
+      "Bash(/Users/kirillsleptsov/stm32_emulator/src/stm32sim /Users/kirillsleptsov/stm32_emulator/examples/firmware.bin)",
+      "Bash(printf \"run\\\\nreg\\\\nquit\\\\n\")",
+      "Bash(make -C examples)",
+      "Bash(make CC=clang clean)",
+      "Read(//tmp/**)",
+      "Read(//private/tmp/**)",
+      "Bash(printf \"run\\\\n\")",
+      "Bash(echo \"exit=$?\")",
+      "Bash(make -C src test)",
+      "Bash(arm-none-eabi-objdump -d examples/firmware.elf)",
+      "Bash(clang -Wall -Wextra -std=c11 -I. -g -O0 -fsanitize=address profiler.c core/core.c nvic/nvic.c nvic/nvic_bus.c memory/memory.c bus/bus.c events/event_queue.c peripherals/timer/timer.c peripherals/systick/systick.c peripherals/rcc/rcc.c peripherals/gpio/gpio.c peripherals/uart/uart.c peripherals/uart/uart_logger.c debugger/debugger.c simulator/simulator.c ui/ui.c gdb_stub/gdb_stub.c main.c -o stm32sim_asan)",
+      "Bash(src/stm32sim_asan examples/firmware.bin)",
+      "Bash(make -C src clean)",
+      "Bash(printf \"run\\\\nprofile\\\\nquit\\\\n\")",
+      "Bash(kill %1)",
+      "Bash(printf \"step 200000\\\\nprofile\\\\nquit\\\\n\")",
+      "Bash(printf \"step 100000\\\\nprofile\\\\nquit\\\\n\")",
+      "Bash(printf \"step 69\\\\nreg\\\\nquit\\\\n\")",
+      "Bash(clang -Wall -Wextra -std=c11 -I src -g -O0 -fsanitize=address src/profiler.c src/core/core.c src/nvic/nvic.c src/nvic/nvic_bus.c src/memory/memory.c src/bus/bus.c src/events/event_queue.c src/peripherals/timer/timer.c src/peripherals/systick/systick.c src/peripherals/rcc/rcc.c src/peripherals/gpio/gpio.c src/peripherals/uart/uart.c src/peripherals/uart/uart_logger.c src/debugger/debugger.c src/simulator/simulator.c src/ui/ui.c src/gdb_stub/gdb_stub.c src/main.c -o /tmp/stm32sim_asan)",
+      "Bash(printf \"step 100\\\\nquit\\\\n\")",
+      "Bash(/tmp/stm32sim_asan examples/firmware.bin)"
+    ],
+    "additionalDirectories": [
+      "/Users/kirillsleptsov/stm32_emulator/src",
+      "/tmp"
+    ]
+  }
+}

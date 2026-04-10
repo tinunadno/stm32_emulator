@@ -16,7 +16,7 @@ typedef struct {
     Status    (*write)(void* ctx, uint32_t offset, uint32_t value, uint8_t size);
 } BusRegion;
 
-#define BUS_MAX_REGIONS 16
+#define BUS_MAX_REGIONS 24
 
 /**
  * System bus: routes memory accesses to the appropriate peripheral or memory.

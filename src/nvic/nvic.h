@@ -7,14 +7,20 @@
 
 /**
  * Nested Vectored Interrupt Controller.
- * Manages 43 IRQ lines with 8-bit priority (lower value = higher priority).
+ * Manages 43 external IRQ lines plus core exceptions (SysTick, PendSV).
+ * Priority: lower value = higher priority.
  */
 typedef struct {
     int      pending[NVIC_NUM_IRQ];
     int      active[NVIC_NUM_IRQ];
     int      enabled[NVIC_NUM_IRQ];
     uint8_t  priority[NVIC_NUM_IRQ];
-    uint8_t  current_priority;  /* Priority of currently executing IRQ (0xFF = none) */
+    uint8_t  current_priority;  /* Priority of currently executing exception (0xFF = none) */
+
+    /* Core exceptions (not external IRQs) */
+    int      systick_pending;
+    int      systick_enabled;   /* SYST_CSR.TICKINT */
+    uint8_t  systick_priority;
 } NVIC;
 
 void nvic_init(NVIC* nvic);
@@ -46,5 +52,17 @@ void nvic_acknowledge(NVIC* nvic, uint32_t irq);
 
 /** Complete an IRQ: mark not active, restore priority. */
 void nvic_complete(NVIC* nvic, uint32_t irq);
+
+/* --- SysTick core exception --- */
+void nvic_set_systick_pending(NVIC* nvic);
+void nvic_clear_systick_pending(NVIC* nvic);
+void nvic_enable_systick(NVIC* nvic, int enable);
+void nvic_set_systick_priority(NVIC* nvic, uint8_t prio);
+
+/**
+ * Check if SysTick can fire (pending + enabled + priority high enough).
+ * Returns 1 if SysTick should preempt current execution.
+ */
+int  nvic_get_systick_pending(NVIC* nvic);
 
 #endif /* STM32_NVIC_H */

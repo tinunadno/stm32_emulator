@@ -37,7 +37,8 @@ typedef struct {
 typedef struct Core {
     CoreState    state;
     struct Bus*  bus;
-    void*        nvic;  /* Actually NVIC*, using void* to avoid circular include */
+    void*        nvic;      /* Actually NVIC*, using void* to avoid circular include */
+    void*        profiler;  /* Actually Profiler*, optional — NULL disables profiling */
 } Core;
 
 void             core_init(Core* core, struct Bus* bus, void* nvic);

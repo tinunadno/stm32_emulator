@@ -4,11 +4,17 @@ LDFLAGS  =
 TARGET   = stm32sim
 
 # Library sources (everything except main.c)
-LIB_SRCS = core/core.c \
+LIB_SRCS = profiler.c \
+           core/core.c \
            nvic/nvic.c \
+           nvic/nvic_bus.c \
            memory/memory.c \
            bus/bus.c \
+           events/event_queue.c \
            peripherals/timer/timer.c \
+           peripherals/systick/systick.c \
+           peripherals/rcc/rcc.c \
+           peripherals/gpio/gpio.c \
            peripherals/uart/uart.c \
            peripherals/uart/uart_logger.c \
            debugger/debugger.c \
@@ -26,6 +32,9 @@ TEST_SRCS = tests/test_main.c \
             tests/test_memory.c \
             tests/test_bus.c \
             tests/test_timer.c \
+            tests/test_systick.c \
+            tests/test_rcc.c \
+            tests/test_gpio.c \
             tests/test_uart.c \
             tests/test_core.c \
             tests/test_debugger.c \

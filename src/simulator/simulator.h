@@ -7,10 +7,15 @@
 #include "bus/bus.h"
 #include "core/core.h"
 #include "debugger/debugger.h"
+#include "events/event_queue.h"
 #include "peripherals/peripheral.h"
 #include "peripherals/timer/timer.h"
 #include "peripherals/uart/uart.h"
 #include "peripherals/uart/uart_logger.h"
+#include "peripherals/systick/systick.h"
+#include "peripherals/rcc/rcc.h"
+#include "peripherals/gpio/gpio.h"
+#include "profiler.h"
 
 #define SIM_MAX_PERIPHERALS 16
 
@@ -30,15 +35,25 @@ typedef struct {
     Bus         bus;
     Core        core;
     Debugger    debugger;
-    TimerState  timer;
-    UartState   uart;
-    UartLogger  uart_logger;
+    EventQueue   events;
+    TimerState   timer;
+    SysTickState systick;
+    RccState     rcc;
+    GpioState    gpioa;
+    GpioState    gpiob;
+    GpioState    gpioc;
+    UartState    uart;
+    UartLogger   uart_logger;
 
     /* Registered tickable peripherals */
     Peripheral  peripherals[SIM_MAX_PERIPHERALS];
     int         num_peripherals;
 
+    /* Profiler */
+    Profiler    profiler;
+
     /* Simulator state */
+    uint64_t    cycle;   /* Total CPU cycles elapsed since reset */
     int         halted;
     int         running;
 } Simulator;
