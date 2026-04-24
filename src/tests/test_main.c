@@ -15,6 +15,9 @@ int main(void)
     test_memory_all();
     test_bus_all();
     test_timer_all();
+    test_systick_all();
+    test_rcc_all();
+    test_gpio_all();
     test_uart_all();
     test_core_all();
     test_debugger_all();

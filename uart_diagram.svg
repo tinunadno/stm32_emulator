@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="300">
+<rect width="960" height="300" fill="#1e1e1e"/>
+<rect width="960" height="38" fill="#252526"/>
+<text x="480" y="24" text-anchor="middle" font-family="monospace" font-size="13" fill="#cccccc">UART Timing Diagram &#160;|&#160; Tick: 1156 &#160;|&#160; TX: 30 &#160;|&#160; RX: 0</text>
+<text x="49" y="109" text-anchor="end" font-family="monospace" font-size="12" fill="#569cd6">TX</text>
+<text x="49" y="184" text-anchor="end" font-family="monospace" font-size="12" fill="#4ec9b0">RX</text>
+<line x1="55" y1="105" x2="930" y2="105" stroke="#264f78" stroke-width="1"/>
+<line x1="55" y1="180" x2="930" y2="180" stroke="#1e4f40" stroke-width="1"/>
+<line x1="55" y1="240" x2="930" y2="240" stroke="#555" stroke-width="1"/>
+<line x1="55" y1="236" x2="55" y2="244" stroke="#555" stroke-width="1"/>
+<text x="55" y="256" text-anchor="middle" font-family="monospace" font-size="9" fill="#777">50</text>
+<line x1="273" y1="236" x2="273" y2="244" stroke="#555" stroke-width="1"/>
+<text x="273" y="256" text-anchor="middle" font-family="monospace" font-size="9" fill="#777">321</text>
+<line x1="492" y1="236" x2="492" y2="244" stroke="#555" stroke-width="1"/>
+<text x="492" y="256" text-anchor="middle" font-family="monospace" font-size="9" fill="#777">593</text>
+<line x1="711" y1="236" x2="711" y2="244" stroke="#555" stroke-width="1"/>
+<text x="711" y="256" text-anchor="middle" font-family="monospace" font-size="9" fill="#777">864</text>
+<line x1="930" y1="236" x2="930" y2="244" stroke="#555" stroke-width="1"/>
+<text x="930" y="256" text-anchor="middle" font-family="monospace" font-size="9" fill="#777">1136</text>
+<line x1="55" y1="119" x2="55" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x48 'H' @ tick 50</title>
+<rect x="43" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="55" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">H</text>
+</g>
+<line x1="79" y1="119" x2="79" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x65 'e' @ tick 80</title>
+<rect x="67" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="79" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">e</text>
+</g>
+<line x1="103" y1="119" x2="103" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x6C 'l' @ tick 110</title>
+<rect x="91" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="103" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">l</text>
+</g>
+<line x1="127" y1="119" x2="127" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x6C 'l' @ tick 140</title>
+<rect x="115" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="127" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">l</text>
+</g>
+<line x1="151" y1="119" x2="151" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x6F 'o' @ tick 170</title>
+<rect x="139" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="151" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">o</text>
+</g>
+<line x1="175" y1="119" x2="175" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x20 ' ' @ tick 200</title>
+<rect x="163" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="175" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0"> </text>
+</g>
+<line x1="200" y1="119" x2="200" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x66 'f' @ tick 230</title>
+<rect x="188" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="200" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">f</text>
+</g>
+<line x1="224" y1="119" x2="224" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x72 'r' @ tick 260</title>
+<rect x="212" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="224" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">r</text>
+</g>
+<line x1="248" y1="119" x2="248" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x6F 'o' @ tick 290</title>
+<rect x="236" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="248" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">o</text>
+</g>
+<line x1="272" y1="119" x2="272" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x6D 'm' @ tick 320</title>
+<rect x="260" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="272" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">m</text>
+</g>
+<line x1="296" y1="119" x2="296" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x20 ' ' @ tick 350</title>
+<rect x="284" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="296" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0"> </text>
+</g>
+<line x1="320" y1="119" x2="320" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x53 'S' @ tick 380</title>
+<rect x="308" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="320" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">S</text>
+</g>
+<line x1="345" y1="119" x2="345" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x54 'T' @ tick 410</title>
+<rect x="333" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="345" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">T</text>
+</g>
+<line x1="369" y1="119" x2="369" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x4D 'M' @ tick 440</title>
+<rect x="357" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="369" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">M</text>
+</g>
+<line x1="393" y1="119" x2="393" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x33 '3' @ tick 470</title>
+<rect x="381" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="393" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">3</text>
+</g>
+<line x1="417" y1="119" x2="417" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x32 '2' @ tick 500</title>
+<rect x="405" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="417" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">2</text>
+</g>
+<line x1="441" y1="119" x2="441" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x21 '!' @ tick 530</title>
+<rect x="429" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="441" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">!</text>
+</g>
+<line x1="465" y1="119" x2="465" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x0A '0x0A' @ tick 560</title>
+<rect x="453" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="465" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">LF</text>
+</g>
+<line x1="594" y1="119" x2="594" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x31 '1' @ tick 720</title>
+<rect x="582" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="594" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">1</text>
+</g>
+<line x1="612" y1="119" x2="612" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x0A '0x0A' @ tick 742</title>
+<rect x="600" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="612" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">LF</text>
+</g>
+<line x1="677" y1="119" x2="677" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x32 '2' @ tick 822</title>
+<rect x="665" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="677" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">2</text>
+</g>
+<line x1="694" y1="119" x2="694" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x0A '0x0A' @ tick 844</title>
+<rect x="682" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="694" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">LF</text>
+</g>
+<line x1="759" y1="119" x2="759" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x33 '3' @ tick 924</title>
+<rect x="747" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="759" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">3</text>
+</g>
+<line x1="776" y1="119" x2="776" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x0A '0x0A' @ tick 946</title>
+<rect x="764" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="776" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">LF</text>
+</g>
+<line x1="809" y1="119" x2="809" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x44 'D' @ tick 986</title>
+<rect x="797" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="809" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">D</text>
+</g>
+<line x1="833" y1="119" x2="833" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x6F 'o' @ tick 1016</title>
+<rect x="821" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="833" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">o</text>
+</g>
+<line x1="857" y1="119" x2="857" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x6E 'n' @ tick 1046</title>
+<rect x="845" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="857" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">n</text>
+</g>
+<line x1="881" y1="119" x2="881" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x65 'e' @ tick 1076</title>
+<rect x="869" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="881" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">e</text>
+</g>
+<line x1="905" y1="119" x2="905" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x21 '!' @ tick 1106</title>
+<rect x="893" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="905" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">!</text>
+</g>
+<line x1="918" y1="119" x2="918" y2="240" stroke="#569cd6" stroke-width="1" opacity="0.35"/>
+<g><title>TX 0x0A '0x0A' @ tick 1136</title>
+<rect x="906" y="91" width="24" height="28" rx="3" fill="#1a3a5c" stroke="#569cd6" stroke-width="1"/>
+<text x="918" y="105" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="#7fb8e0">LF</text>
+</g>
+</svg>

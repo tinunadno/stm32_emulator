@@ -12,7 +12,10 @@ void nvic_reset(NVIC* nvic)
     memset(nvic->active,   0, sizeof(nvic->active));
     memset(nvic->enabled,  0, sizeof(nvic->enabled));
     memset(nvic->priority, 0, sizeof(nvic->priority));
-    nvic->current_priority = 0xFF; /* No active interrupt */
+    nvic->current_priority  = 0xFF;
+    nvic->systick_pending   = 0;
+    nvic->systick_enabled   = 0;
+    nvic->systick_priority  = 0;  /* Default: highest configurable priority */
 }
 
 void nvic_set_pending(NVIC* nvic, uint32_t irq)
@@ -89,4 +92,18 @@ void nvic_complete(NVIC* nvic, uint32_t irq)
             nvic->current_priority = nvic->priority[i];
         }
     }
+}
+
+/* --- SysTick ----------------------------------------------------------- */
+
+void nvic_set_systick_pending(NVIC* nvic)   { nvic->systick_pending = 1; }
+void nvic_clear_systick_pending(NVIC* nvic) { nvic->systick_pending = 0; }
+void nvic_enable_systick(NVIC* nvic, int enable) { nvic->systick_enabled = enable; }
+void nvic_set_systick_priority(NVIC* nvic, uint8_t prio) { nvic->systick_priority = prio; }
+
+int nvic_get_systick_pending(NVIC* nvic)
+{
+    if (!nvic->systick_pending || !nvic->systick_enabled)
+        return 0;
+    return nvic->systick_priority < nvic->current_priority;
 }

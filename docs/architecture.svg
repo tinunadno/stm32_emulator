@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="490">
+
+  <!-- Background -->
+  <rect width="1000" height="490" fill="#1e1e1e"/>
+
+  <!-- Title -->
+  <text x="500" y="28" text-anchor="middle"
+        font-family="monospace" font-size="15" fill="#cccccc" font-weight="bold">
+    STM32F103 Emulator — Architecture
+  </text>
+
+  <!-- ================================================================
+       ROW 1: Core (left) and NVIC (right)
+       ================================================================ -->
+
+  <!-- Core box -->
+  <rect x="60" y="50" width="165" height="68" rx="4"
+        fill="#1a2c3c" stroke="#569cd6" stroke-width="2"/>
+  <text x="142" y="72" text-anchor="middle"
+        font-family="monospace" font-size="13" fill="#569cd6" font-weight="bold">
+    Cortex-M3 Core
+  </text>
+  <text x="142" y="89" text-anchor="middle"
+        font-family="monospace" font-size="9" fill="#7fb8e0">
+    r0–r15 · xPSR · SP · LR · PC
+  </text>
+  <text x="142" y="106" text-anchor="middle"
+        font-family="monospace" font-size="9" fill="#555">
+    Thumb-1 + Thumb-2
+  </text>
+
+  <!-- NVIC box -->
+  <rect x="775" y="50" width="165" height="68" rx="4"
+        fill="#1a2c1a" stroke="#4ec9b0" stroke-width="2"/>
+  <text x="857" y="72" text-anchor="middle"
+        font-family="monospace" font-size="13" fill="#4ec9b0" font-weight="bold">
+    NVIC
+  </text>
+  <text x="857" y="89" text-anchor="middle"
+        font-family="monospace" font-size="9" fill="#7fdfc8">
+    IRQ 0–67  +  SysTick (EXC 15)
+  </text>
+  <text x="857" y="106" text-anchor="middle"
+        font-family="monospace" font-size="9" fill="#555">
+    priority · pending · enabled
+  </text>
+
+  <!-- Core ↔ NVIC bidirectional dashed line (IRQ / EXC_RETURN) -->
+  <line x1="225" y1="84" x2="775" y2="84"
+        stroke="#444" stroke-width="1.5" stroke-dasharray="6,4"/>
+  <polygon points="225,80 213,84 225,88" fill="#444"/>
+  <polygon points="775,80 787,84 775,88" fill="#444"/>
+  <text x="500" y="78" text-anchor="middle"
+        font-family="monospace" font-size="9" fill="#555">
+    IRQ pending / EXC_RETURN
+  </text>
+
+  <!-- ================================================================
+       ROW 2: Bus bar
+       ================================================================ -->
+
+  <rect x="40" y="170" width="920" height="32" rx="4"
+        fill="#252526" stroke="#4a4a4a" stroke-width="2"/>
+  <text x="500" y="191" text-anchor="middle"
+        font-family="monospace" font-size="12" fill="#9cdcfe" font-weight="bold">
+    AHB / APB Bus
+  </text>
+
+  <!-- Core → Bus (solid arrow down) -->
+  <line x1="142" y1="118" x2="142" y2="170"
+        stroke="#569cd6" stroke-width="1.5"/>
+  <polygon points="138,168 146,168 142,176" fill="#569cd6"/>
+
+  <!-- ================================================================
+       ROW 3: Peripherals  y=262
+       ================================================================ -->
+
+  <!-- Flash  x=40 -->
+  <rect x="40" y="262" width="110" height="64" rx="4"
+        fill="#1a1a3a" stroke="#61afef" stroke-width="1.5"/>
+  <text x="95" y="281" text-anchor="middle"
+        font-family="monospace" font-size="11" fill="#61afef">Flash</text>
+  <text x="95" y="297" text-anchor="middle"
+        font-family="monospace" font-size="9" fill="#8abedd">64 KB</text>
+  <text x="95" y="312" text-anchor="middle"
+        font-family="monospace" font-size="8" fill="#555">0x0800_0000</text>
+  <text x="95" y="323" text-anchor="middle"
+        font-family="monospace" font-size="8" fill="#555">0x0000_0000</text>
+
+  <!-- SRAM  x=162 -->
+  <rect x="162" y="262" width="110" height="64" rx="4"
+        fill="#1a1a3a" stroke="#61afef" stroke-width="1.5"/>
+  <text x="217" y="281" text-anchor="middle"
+        font-family="monospace" font-size="11" fill="#61afef">SRAM</text>
+  <text x="217" y="297" text-anchor="middle"
+        font-family="monospace" font-size="9" fill="#8abedd">20 KB</text>
+  <text x="217" y="312" text-anchor="middle"
+        font-family="monospace" font-size="8" fill="#555">0x2000_0000</text>
+
+  <!-- TIM2  x=284 -->
+  <rect x="284" y="262" width="100" height="64" rx="4"
+        fill="#2c1a1a" stroke="#e06c75" stroke-width="1.5"/>
+  <text x="334" y="281" text-anchor="middle"
+        font-family="monospace" font-size="11" fill="#e06c75">TIM2</text>
+  <text x="334" y="297" text-anchor="middle"
+        font-family="monospace" font-size="9" fill="#c07070">IRQ 28</text>
+  <text x="334" y="312" text-anchor="middle"
+        font-family="monospace" font-size="8" fill="#555">0x4000_0000</text>
+  <text x="334" y="323" text-anchor="middle"
+        font-family="monospace" font-size="8" fill="#c678dd">⬇ EventQueue</text>
+
+  <!-- SysTick  x=396 -->
+  <rect x="396" y="262" width="110" height="64" rx="4"
+        fill="#2c1a1a" stroke="#e06c75" stroke-width="1.5"/>
+  <text x="451" y="281" text-anchor="middle"
+        font-family="monospace" font-size="11" fill="#e06c75">SysTick</text>
+  <text x="451" y="297" text-anchor="middle"
+        font-family="monospace" font-size="9" fill="#c07070">EXC 15</text>
+  <text x="451" y="312" text-anchor="middle"
+        font-family="monospace" font-size="8" fill="#555">0xE000_E010</text>
+  <text x="451" y="323" text-anchor="middle"
+        font-family="monospace" font-size="8" fill="#c678dd">⬇ EventQueue</text>
+
+  <!-- RCC  x=518 -->
+  <rect x="518" y="262" width="85" height="64" rx="4"
+        fill="#1a2a1a" stroke="#98c379" stroke-width="1.5"/>
+  <text x="560" y="281" text-anchor="middle"
+        font-family="monospace" font-size="11" fill="#98c379">RCC</text>
+  <text x="560" y="297" text-anchor="middle"
+        font-family="monospace" font-size="9" fill="#78a359">clocks</text>
+  <text x="560" y="312" text-anchor="middle"
+        font-family="monospace" font-size="8" fill="#555">0x4002_1000</text>
+
+  <!-- GPIOA/B/C  x=615 -->
+  <rect x="615" y="262" width="120" height="64" rx="4"
+        fill="#1a2a1a" stroke="#98c379" stroke-width="1.5"/>
+  <text x="675" y="281" text-anchor="middle"
+        font-family="monospace" font-size="11" fill="#98c379">GPIOA/B/C</text>
+  <text x="675" y="297" text-anchor="middle"
+        font-family="monospace" font-size="9" fill="#78a359">16 pins each</text>
+  <text x="675" y="312" text-anchor="middle"
+        font-family="monospace" font-size="8" fill="#555">0x4001_0800</text>
+  <text x="675" y="323" text-anchor="middle"
+        font-family="monospace" font-size="8" fill="#555">+0x400 each</text>
+
+  <!-- USART1  x=747 -->
+  <rect x="747" y="262" width="110" height="64" rx="4"
+        fill="#2a2a1a" stroke="#e5c07b" stroke-width="1.5"/>
+  <text x="802" y="281" text-anchor="middle"
+        font-family="monospace" font-size="11" fill="#e5c07b">USART1</text>
+  <text x="802" y="297" text-anchor="middle"
+        font-family="monospace" font-size="9" fill="#c5a060">IRQ 37</text>
+  <text x="802" y="312" text-anchor="middle"
+        font-family="monospace" font-size="8" fill="#555">0x4001_3800</text>
+  <text x="802" y="323" text-anchor="middle"
+        font-family="monospace" font-size="8" fill="#e5c07b">⬇ UartLogger</text>
+
+  <!-- Bus → peripherals (vertical connectors, bus bottom y=202) -->
+  <line x1="95"  y1="202" x2="95"  y2="260" stroke="#4a4a4a" stroke-width="1.5"/>
+  <polygon points="91,258 99,258 95,266"  fill="#4a4a4a"/>
+  <line x1="217" y1="202" x2="217" y2="260" stroke="#4a4a4a" stroke-width="1.5"/>
+  <polygon points="213,258 221,258 217,266" fill="#4a4a4a"/>
+  <line x1="334" y1="202" x2="334" y2="260" stroke="#4a4a4a" stroke-width="1.5"/>
+  <polygon points="330,258 338,258 334,266" fill="#4a4a4a"/>
+  <line x1="451" y1="202" x2="451" y2="260" stroke="#4a4a4a" stroke-width="1.5"/>
+  <polygon points="447,258 455,258 451,266" fill="#4a4a4a"/>
+  <line x1="560" y1="202" x2="560" y2="260" stroke="#4a4a4a" stroke-width="1.5"/>
+  <polygon points="556,258 564,258 560,266" fill="#4a4a4a"/>
+  <line x1="675" y1="202" x2="675" y2="260" stroke="#4a4a4a" stroke-width="1.5"/>
+  <polygon points="671,258 679,258 675,266" fill="#4a4a4a"/>
+  <line x1="802" y1="202" x2="802" y2="260" stroke="#4a4a4a" stroke-width="1.5"/>
+  <polygon points="798,258 806,258 802,266" fill="#4a4a4a"/>
+
+  <!-- NVIC → IRQ-generating peripherals (dashed lines going up from peripherals to NVIC) -->
+  <!-- TIM2 right edge (384) up to y=150, across to NVIC bottom (857, 118) -->
+  <path d="M 384 262 L 384 150 L 857 150 L 857 118"
+        fill="none" stroke="#e06c75" stroke-width="1"
+        stroke-dasharray="4,3" opacity="0.55"/>
+  <!-- SysTick right edge (506) up to y=143 -->
+  <path d="M 506 262 L 506 143 L 857 143"
+        fill="none" stroke="#e06c75" stroke-width="1"
+        stroke-dasharray="4,3" opacity="0.55"/>
+  <!-- USART1 right edge (857) straight up to NVIC bottom -->
+  <path d="M 857 262 L 857 118"
+        fill="none" stroke="#e5c07b" stroke-width="1"
+        stroke-dasharray="4,3" opacity="0.55"/>
+  <!-- IRQ label -->
+  <text x="660" y="138" text-anchor="middle"
+        font-family="monospace" font-size="8" fill="#666">
+    IRQ 28 · EXC 15 · IRQ 37
+  </text>
+
+  <!-- ================================================================
+       ROW 4: EventQueue and UartLogger
+       ================================================================ -->
+
+  <!-- EventQueue -->
+  <rect x="284" y="388" width="222" height="50" rx="4"
+        fill="#2a1e2c" stroke="#c678dd" stroke-width="1.5"/>
+  <text x="395" y="409" text-anchor="middle"
+        font-family="monospace" font-size="12" fill="#c678dd">EventQueue</text>
+  <text x="395" y="427" text-anchor="middle"
+        font-family="monospace" font-size="9" fill="#a06bb0">
+    min-heap · 256 slots · DES
+  </text>
+
+  <!-- UartLogger -->
+  <rect x="747" y="388" width="115" height="50" rx="4"
+        fill="#2a2a1e" stroke="#e5c07b" stroke-width="1.5"/>
+  <text x="804" y="409" text-anchor="middle"
+        font-family="monospace" font-size="12" fill="#e5c07b">UartLogger</text>
+  <text x="804" y="427" text-anchor="middle"
+        font-family="monospace" font-size="9" fill="#b09050">
+    ring buf · ASCII/SVG/HTML
+  </text>
+
+  <!-- TIM2 → EventQueue -->
+  <line x1="334" y1="326" x2="334" y2="388"
+        stroke="#c678dd" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="330,386 338,386 334,394" fill="#c678dd"/>
+
+  <!-- SysTick → EventQueue -->
+  <line x1="451" y1="326" x2="451" y2="388"
+        stroke="#c678dd" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="447,386 455,386 451,394" fill="#c678dd"/>
+
+  <!-- USART1 → UartLogger -->
+  <line x1="802" y1="326" x2="802" y2="388"
+        stroke="#e5c07b" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="798,386 806,386 802,394" fill="#e5c07b"/>
+
+  <!-- ================================================================
+       Footer: cycle pipeline
+       ================================================================ -->
+  <text x="500" y="458" text-anchor="middle"
+        font-family="monospace" font-size="9" fill="#555">
+    Step loop: cycle++ → peripheral tick() → EventQueue.dispatch() → core_step() → breakpoint check
+  </text>
+
+  <!-- Legend -->
+  <g transform="translate(40, 472)">
+    <line x1="0" y1="-4" x2="22" y2="-4" stroke="#4a4a4a" stroke-width="1.5"/>
+    <polygon points="20,-7 28,-4 20,-1" fill="#4a4a4a"/>
+    <text x="32" y="0" font-family="monospace" font-size="8" fill="#666">bus</text>
+
+    <line x1="65" y1="-4" x2="87" y2="-4" stroke="#e06c75" stroke-width="1"
+          stroke-dasharray="4,3" opacity="0.7"/>
+    <text x="92" y="0" font-family="monospace" font-size="8" fill="#666">IRQ</text>
+
+    <line x1="120" y1="-4" x2="142" y2="-4" stroke="#c678dd" stroke-width="1.5"
+          stroke-dasharray="4,3"/>
+    <text x="147" y="0" font-family="monospace" font-size="8" fill="#666">DES event</text>
+
+    <line x1="200" y1="-4" x2="222" y2="-4" stroke="#e5c07b" stroke-width="1.5"
+          stroke-dasharray="4,3"/>
+    <text x="227" y="0" font-family="monospace" font-size="8" fill="#666">logger</text>
+  </g>
+
+</svg>

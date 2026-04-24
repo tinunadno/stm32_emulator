@@ -14,6 +14,7 @@
 #include "common/status.h"
 #include "bus/bus.h"
 #include "debugger/debugger.h"
+#include "peripherals/uart/uart_logger.h"
 
 #define PKT_BUF_SIZE 4096
 
@@ -279,6 +280,18 @@ static void handle_write_mem(GdbStub* stub, int fd, const char* args)
     rsp_send_packet(fd, "OK");
 }
 
+/*
+ * Write uart_diagram.html to CWD (= workspace root when launched by VS Code task).
+ * Called automatically on every halt so Live Preview auto-refreshes.
+ */
+static void write_uart_svg(GdbStub* stub)
+{
+    FILE* f = fopen("uart_diagram.html", "w");
+    if (!f) return;
+    uart_logger_write_html(&stub->sim->uart_logger, f);
+    fclose(f);
+}
+
 /* Check if GDB sent a 0x03 interrupt — non-blocking */
 static int check_interrupt(int fd)
 {
@@ -319,6 +332,7 @@ static void handle_continue(GdbStub* stub, int fd, const char* args)
     }
 
     stub->sim->running = 0;
+    write_uart_svg(stub);
     rsp_send_packet(fd, "S05");  /* SIGTRAP */
 }
 
@@ -332,6 +346,7 @@ static void handle_step(GdbStub* stub, int fd, const char* args)
 
     stub->sim->halted = 0;
     simulator_step(stub->sim);
+    write_uart_svg(stub);
     rsp_send_packet(fd, "S05");  /* SIGTRAP */
 }
 
@@ -365,6 +380,31 @@ static void handle_remove_bp(GdbStub* stub, int fd, const char* args)
 }
 
 /*
+ * Send a string as GDB console output (O packets, 200 chars per packet).
+ * The text appears directly in the VS Code Debug Console.
+ */
+static void send_output(int fd, const char* text)
+{
+    int total = (int)strlen(text);
+    int chunk = 200;  /* actual chars per O packet */
+
+    for (int i = 0; i < total; i += chunk) {
+        int n = total - i;
+        if (n > chunk) n = chunk;
+
+        /* 'O' + up to 400 hex chars + null = 402 bytes */
+        char pkt[402];
+        pkt[0] = 'O';
+        int pos = 1;
+        for (int j = 0; j < n; j++)
+            pos += snprintf(pkt + pos, 3, "%02x", (unsigned char)text[i + j]);
+        pkt[pos] = '\0';
+
+        rsp_send_packet(fd, pkt);
+    }
+}
+
+/*
  * Handle qRcmd — the RSP packet behind GDB's "monitor <cmd>".
  * args is the hex-encoded command string (e.g. "68616c74" = "halt").
  * Cortex-Debug sends "monitor halt" and "monitor reset halt" on startup.
@@ -389,6 +429,16 @@ static void handle_monitor_cmd(GdbStub* stub, int fd, const char* hex_cmd)
     } else if (strcmp(cmd, "reset") == 0 || strcmp(cmd, "reset halt") == 0) {
         simulator_reset(stub->sim);
         simulator_halt(stub->sim);
+    } else if (strcmp(cmd, "uart-diagram") == 0) {
+        char diag[UART_DIAGRAM_BUF_SZ];
+        uart_logger_generate_diagram(&stub->sim->uart_logger, diag, sizeof(diag));
+        send_output(fd, diag);
+    } else if (strcmp(cmd, "uart-clear") == 0) {
+        uart_logger_clear(&stub->sim->uart_logger);
+        send_output(fd, "UART log cleared.\r\n");
+    } else if (strcmp(cmd, "uart-svg") == 0) {
+        write_uart_svg(stub);
+        send_output(fd, "Written to uart_diagram.html\r\n");
     }
     /* Unknown monitor commands get silently accepted */
     rsp_send_packet(fd, "OK");

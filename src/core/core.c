@@ -1,6 +1,7 @@
 #include "core/core.h"
 #include "bus/bus.h"
 #include "nvic/nvic.h"
+#include "profiler.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -97,10 +98,11 @@ static int32_t sign_extend(uint32_t value, int bits)
  * Exception (interrupt) entry/exit
  * ====================================================================== */
 
-static void enter_exception(Core* core, uint32_t irq)
+/* Push exception frame and jump to handler at vector_addr.
+ * Shared by both external IRQs and core exceptions. */
+static void push_exception_frame(Core* core, uint32_t vector_addr)
 {
-    NVIC* nvic = (NVIC*)core->nvic;
-    Bus*  bus  = core->bus;
+    Bus* bus = core->bus;
 
     /* Push context: xPSR, PC, LR, R12, R3, R2, R1, R0 (descending) */
     R(SP) -= 32;
@@ -114,17 +116,45 @@ static void enter_exception(Core* core, uint32_t irq)
     bus_write(bus, frame + 24, R(PC), 4);
     bus_write(bus, frame + 28, XPSR,  4);
 
-    /* Set LR to EXC_RETURN for Thread mode / MSP */
     R(LR) = EXC_RETURN_THREAD_MSP;
 
-    /* Read vector table entry: IRQ N handler is at vector 16+N */
-    uint32_t vector_addr = (16 + irq) * 4;
-    uint32_t handler     = bus_read(bus, vector_addr, 4);
-    R(PC) = handler & ~1U;  /* Clear Thumb bit for PC */
+    uint32_t handler = bus_read(bus, vector_addr, 4);
+    R(PC) = handler & ~1U;
+}
 
-    /* Mark IRQ as acknowledged */
+static void enter_exception(Core* core, uint32_t irq)
+{
+    NVIC* nvic = (NVIC*)core->nvic;
+
+    /* IRQ N handler is at vector table entry 16+N */
+    push_exception_frame(core, (16 + irq) * 4);
+
     nvic_acknowledge(nvic, irq);
     core->state.current_irq = irq + 1;  /* +1 so 0 means "no IRQ" */
+
+    if (core->profiler)
+        profiler_enter((Profiler*)core->profiler, 16 + irq, CYCLES);
+}
+
+/*
+ * Enter a core exception (SysTick=15, PendSV=14, etc.).
+ * Vector table entry is at exc_num * 4.
+ * Uses current_irq = 0x8000 | exc_num as sentinel (won't collide with IRQ0-42).
+ */
+static void enter_core_exception(Core* core, uint32_t exc_num)
+{
+    NVIC* nvic = (NVIC*)core->nvic;
+
+    push_exception_frame(core, exc_num * 4);
+
+    if (exc_num == 15) {
+        nvic_clear_systick_pending(nvic);
+        nvic->current_priority = nvic->systick_priority;
+    }
+    core->state.current_irq = 0x8000u | exc_num;
+
+    if (core->profiler)
+        profiler_enter((Profiler*)core->profiler, exc_num, CYCLES);
 }
 
 static void exit_exception(Core* core)
@@ -144,8 +174,17 @@ static void exit_exception(Core* core)
     XPSR  = bus_read(bus, frame + 28, 4);
     R(SP) += 32;
 
-    /* Complete the IRQ */
-    if (core->state.current_irq > 0) {
+    /* Complete the exception */
+    if (core->state.current_irq & 0x8000u) {
+        if (core->profiler)
+            profiler_exit((Profiler*)core->profiler,
+                          core->state.current_irq & 0x7FFFu, CYCLES);
+        /* Core exception (SysTick etc.) — restore priority, no nvic_complete */
+        nvic->current_priority = 0xFF;
+    } else if (core->state.current_irq > 0) {
+        if (core->profiler)
+            profiler_exit((Profiler*)core->profiler,
+                          16 + (core->state.current_irq - 1), CYCLES);
         nvic_complete(nvic, core->state.current_irq - 1);
     }
     core->state.current_irq = 0;
@@ -1167,6 +1206,111 @@ static Status execute_32bit(Core* core, uint16_t hw1, uint16_t hw2)
         }
     }
 
+    /* 32-bit Load/Store single data item: 0xF800-0xF8FF
+     *
+     * hw1 layout:  1111 1000 | is_t3 sz[1] sz[0] is_ld | Rn
+     *   is_ld = hw1[4]: 0=store, 1=load
+     *   sz    = hw1[6:5]: 0=byte, 1=halfword, 2=word
+     *   is_t3 = hw1[7]: 0=T2(register)/T4(imm8+PUW), 1=T3(imm12 unsigned)
+     *
+     * T3  (hw1[7]=1): hw2 = Rt imm12
+     * T4  (hw1[7]=0, hw2[11]=1): hw2 = Rt 1 P U W imm8
+     * T2  (hw1[7]=0, hw2[11]=0): hw2 = Rt 000000 sh Rm
+     */
+    if ((hw1 & 0xFF00) == 0xF800) {
+        uint32_t Rn    = hw1 & 0xF;
+        int      is_ld = (hw1 >> 4) & 1;
+        int      sz    = (hw1 >> 5) & 3;   /* 0=byte,1=half,2=word */
+        int      is_t3 = (hw1 >> 7) & 1;
+        uint32_t Rt    = (hw2 >> 12) & 0xF;
+        uint32_t addr;
+
+        if (is_t3) {
+            /* T3: unsigned 12-bit positive offset */
+            addr = R(Rn) + (hw2 & 0xFFF);
+        } else if (hw2 & 0x0800) {
+            /* T4: 8-bit immediate, Pre/Post-index, Write-back */
+            int      P   = (hw2 >> 10) & 1;
+            int      U   = (hw2 >> 9)  & 1;
+            int      W   = (hw2 >> 8)  & 1;
+            int32_t  off = U ? (int32_t)(hw2 & 0xFF) : -(int32_t)(hw2 & 0xFF);
+            addr = P ? (uint32_t)((int32_t)R(Rn) + off) : R(Rn);
+            if (W || !P) R(Rn) = (uint32_t)((int32_t)R(Rn) + off);
+        } else {
+            /* T2: register offset with optional LSL */
+            uint32_t Rm = hw2 & 0xF;
+            uint32_t sh = (hw2 >> 4) & 0x3;
+            addr = R(Rn) + (R(Rm) << sh);
+        }
+
+        if (is_ld) {
+            uint8_t  nbytes = sz == 0 ? 1 : sz == 1 ? 2 : 4;
+            R(Rt) = bus_read(core->bus, addr, nbytes);
+        } else {
+            uint8_t  nbytes = sz == 0 ? 1 : sz == 1 ? 2 : 4;
+            bus_write(core->bus, addr, R(Rt), nbytes);
+        }
+        return STATUS_OK;
+    }
+
+    /* 32-bit Load/Store signed byte/halfword: 0xF900-0xF9FF (LDRSB/LDRSH)
+     * Same layout as 0xF800 but loads are sign-extended.
+     * hw1[4] always 1 (load only — no signed stores).
+     */
+    if ((hw1 & 0xFF00) == 0xF900) {
+        uint32_t Rn    = hw1 & 0xF;
+        int      sz    = (hw1 >> 5) & 1;   /* 0=signed byte, 1=signed half */
+        int      is_t3 = (hw1 >> 7) & 1;
+        uint32_t Rt    = (hw2 >> 12) & 0xF;
+        uint32_t addr;
+
+        if (is_t3) {
+            addr = R(Rn) + (hw2 & 0xFFF);
+        } else if (hw2 & 0x0800) {
+            int     P   = (hw2 >> 10) & 1;
+            int     U   = (hw2 >> 9)  & 1;
+            int     W   = (hw2 >> 8)  & 1;
+            int32_t off = U ? (int32_t)(hw2 & 0xFF) : -(int32_t)(hw2 & 0xFF);
+            addr = P ? (uint32_t)((int32_t)R(Rn) + off) : R(Rn);
+            if (W || !P) R(Rn) = (uint32_t)((int32_t)R(Rn) + off);
+        } else {
+            uint32_t Rm = hw2 & 0xF;
+            uint32_t sh = (hw2 >> 4) & 0x3;
+            addr = R(Rn) + (R(Rm) << sh);
+        }
+
+        uint32_t raw = bus_read(core->bus, addr, sz == 0 ? 1 : 2);
+        R(Rt) = sz == 0 ? (uint32_t)(int32_t)(int8_t)raw
+                        : (uint32_t)(int32_t)(int16_t)raw;
+        return STATUS_OK;
+    }
+
+    /* UMULL T1: 1111 1011 1010 Rn | RdLo RdHi 0000 Rm
+     * Unsigned 64-bit multiply: RdLo:RdHi = Rn * Rm */
+    if ((hw1 & 0xFFF0) == 0xFBA0) {
+        uint32_t Rn   = hw1 & 0xF;
+        uint32_t RdLo = (hw2 >> 12) & 0xF;
+        uint32_t RdHi = (hw2 >> 8)  & 0xF;
+        uint32_t Rm   = hw2 & 0xF;
+        uint64_t result = (uint64_t)R(Rn) * (uint64_t)R(Rm);
+        R(RdLo) = (uint32_t)(result & 0xFFFFFFFFU);
+        R(RdHi) = (uint32_t)(result >> 32);
+        return STATUS_OK;
+    }
+
+    /* SMULL T1: 1111 1011 1000 Rn | RdLo RdHi 0000 Rm
+     * Signed 64-bit multiply: RdLo:RdHi = Rn * Rm */
+    if ((hw1 & 0xFFF0) == 0xFB80) {
+        uint32_t Rn   = hw1 & 0xF;
+        uint32_t RdLo = (hw2 >> 12) & 0xF;
+        uint32_t RdHi = (hw2 >> 8)  & 0xF;
+        uint32_t Rm   = hw2 & 0xF;
+        int64_t result = (int64_t)(int32_t)R(Rn) * (int64_t)(int32_t)R(Rm);
+        R(RdLo) = (uint32_t)((uint64_t)result & 0xFFFFFFFFU);
+        R(RdHi) = (uint32_t)((uint64_t)result >> 32);
+        return STATUS_OK;
+    }
+
     fprintf(stderr, "Unimplemented 32-bit instruction: 0x%04X 0x%04X at PC=0x%08X\n",
             hw1, hw2, R(PC));
     return STATUS_INVALID_INSTRUCTION;
@@ -1215,8 +1359,51 @@ Status core_step(Core* core)
     /* Check for 32-bit instruction */
     if ((instr & 0xE000) == 0xE000 && (instr & 0x1800) != 0) {
         uint16_t hw2 = (uint16_t)bus_read(core->bus, pc + 2, 2);
+        uint32_t prof_idx  = 0;
+        const char* prof_name = NULL;
+        /* Determine which 32-bit instruction we're about to execute */
+        if ((instr & 0xF800) == 0xF000 && (hw2 & 0xD000) == 0xD000)
+            { prof_idx = PROF_INSTR_BL;      prof_name = "BL"; }
+        else if ((instr & 0xFBF0) == 0xF240 && !(hw2 & 0x8000))
+            { prof_idx = PROF_INSTR_MOVW;    prof_name = "MOVW"; }
+        else if ((instr & 0xFBF0) == 0xF2C0 && !(hw2 & 0x8000))
+            { prof_idx = PROF_INSTR_MOVT;    prof_name = "MOVT"; }
+        else if ((instr & 0xFF00) == 0xF800)
+            { prof_idx = PROF_INSTR_LDSTR_W; prof_name = "LDR/STR.W"; }
+        else if ((instr & 0xFF00) == 0xF900)
+            { prof_idx = PROF_INSTR_LDRS_W;  prof_name = "LDRS.W"; }
+        else if ((instr & 0xFFF0) == 0xFBA0)
+            { prof_idx = PROF_INSTR_UMULL;   prof_name = "UMULL"; }
+        else if ((instr & 0xFFF0) == 0xFB80)
+            { prof_idx = PROF_INSTR_SMULL;   prof_name = "SMULL"; }
+        else if ((instr & 0xFA00) == 0xF000 && !(hw2 & 0x8000)) {
+            static const struct { uint32_t op; uint32_t idx; const char* nm; }
+            dp32[] = {
+                {0x0, PROF_INSTR_AND_W, "AND.W"},
+                {0x1, PROF_INSTR_BIC_W, "BIC.W"},
+                {0x2, PROF_INSTR_ORR_W, "ORR.W"},
+                {0x3, PROF_INSTR_ORN_W, "ORN.W"},
+                {0x4, PROF_INSTR_EOR_W, "EOR.W"},
+                {0x8, PROF_INSTR_ADD_W, "ADD.W"},
+                {0x9, PROF_INSTR_ADC_W, "ADC.W"},
+                {0xA, PROF_INSTR_SBC_W, "SBC.W"},
+                {0xD, PROF_INSTR_SUB_W, "SUB.W"},
+                {0xE, PROF_INSTR_RSB_W, "RSB.W"},
+                {0xFF, 0, NULL}
+            };
+            uint32_t op = (instr >> 5) & 0xF;
+            for (int _i = 0; dp32[_i].nm; _i++) {
+                if (dp32[_i].op == op) {
+                    prof_idx  = dp32[_i].idx;
+                    prof_name = dp32[_i].nm;
+                    break;
+                }
+            }
+        }
         Status s = execute_32bit(core, instr, hw2);
         if (s != STATUS_OK) return s;
+        if (core->profiler && prof_name)
+            profiler_count_instr((Profiler*)core->profiler, prof_idx, prof_name);
         if (!pc_written) R(PC) += 4;
     } else {
         /* Look up in instruction table */
@@ -1226,6 +1413,10 @@ Status core_step(Core* core)
         while (entry->handler != NULL) {
             if ((instr & entry->mask) == entry->pattern) {
                 s = entry->handler(core, instr);
+                if (core->profiler)
+                    profiler_count_instr((Profiler*)core->profiler,
+                                         (uint32_t)(entry - instr_table),
+                                         entry->name);
                 break;
             }
             entry++;
@@ -1242,11 +1433,13 @@ Status core_step(Core* core)
 
     CYCLES++;
 
-    /* Check for pending interrupts */
+    /* Check for pending interrupts and core exceptions */
     if (core->state.interruptible) {
         uint32_t irq;
         if (nvic_get_pending_irq(nvic, &irq)) {
             enter_exception(core, irq);
+        } else if (nvic_get_systick_pending(nvic)) {
+            enter_core_exception(core, 15);
         }
     }
 

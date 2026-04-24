@@ -30,10 +30,11 @@ Peripheral uart_as_peripheral(UartState* uart)
 void uart_reset(void* ctx)
 {
     UartState* uart = (UartState*)ctx;
-    NVIC* nvic        = uart->nvic;
-    uint32_t irq      = uart->irq;
-    UartOutputFn fn    = uart->output_fn;
-    void* ud           = uart->output_user_data;
+    NVIC*        nvic   = uart->nvic;
+    uint32_t     irq    = uart->irq;
+    UartOutputFn fn     = uart->output_fn;
+    void*        ud     = uart->output_user_data;
+    UartLogger*  logger = uart->logger;
 
     memset(uart, 0, sizeof(UartState));
     uart->nvic             = nvic;
@@ -41,6 +42,7 @@ void uart_reset(void* ctx)
     uart->sr               = UART_SR_TXE | UART_SR_TC;
     uart->output_fn        = fn;
     uart->output_user_data = ud;
+    uart->logger           = logger;
 }
 
 uint32_t uart_read(void* ctx, uint32_t offset, uint8_t size)
@@ -89,7 +91,9 @@ Status uart_write(void* ctx, uint32_t offset, uint32_t value, uint8_t size)
         break;
 
     case UART_DR_OFFSET:
-        /* Writing DR starts a transmission */
+        /* Writing DR loads the transmit buffer. Clear TXE (buffer no longer
+         * empty) and TC (transmission not yet complete). Output is performed
+         * in uart_tick (next cycle), which restores both flags. */
         if (uart->cr1 & UART_CR1_UE) {
             uart->tx_char    = (uint8_t)(value & 0xFF);
             uart->tx_pending = 1;
@@ -124,6 +128,9 @@ void uart_incoming_char(UartState* uart, char c)
     uart->rx_count++;
     uart->sr |= UART_SR_RXNE;
 
+    if (uart->logger)
+        uart_logger_log_rx(uart->logger, (uint8_t)c);
+
     /* Generate interrupt if enabled */
     if ((uart->cr1 & UART_CR1_RXNEIE) && (uart->cr1 & UART_CR1_UE)) {
         nvic_set_pending(uart->nvic, uart->irq);
@@ -134,11 +141,18 @@ void uart_tick(void* ctx)
 {
     UartState* uart = (UartState*)ctx;
 
+    /* Advance the activity timer every step */
+    if (uart->logger)
+        uart_logger_tick(uart->logger);
+
     if (!uart->tx_pending)
         return;
 
     /* Complete the transmission (instant in simulation) */
     uart->tx_pending = 0;
+
+    if (uart->logger)
+        uart_logger_log_tx(uart->logger, uart->tx_char);
 
     /* Call output callback */
     if (uart->output_fn) {

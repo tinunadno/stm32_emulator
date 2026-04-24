@@ -1,4 +1,5 @@
 #include "ui/ui.h"
+#include "profiler.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,6 +20,9 @@ static void cmd_mem(Simulator* sim, const char* args);
 static void cmd_break(Simulator* sim, const char* args);
 static void cmd_del_break(Simulator* sim, const char* args);
 static void cmd_uart_send(Simulator* sim, const char* args);
+static void cmd_diagram(Simulator* sim, const char* args);
+static void cmd_diagram_save(Simulator* sim, const char* args);
+static void cmd_profile(Simulator* sim, const char* args);
 static void cmd_quit(Simulator* sim, const char* args);
 
 /* ======================================================================
@@ -38,6 +42,9 @@ static const Command commands[] = {
     {"break",   "Set breakpoint: break <addr>",            cmd_break},
     {"delete",  "Delete breakpoint: delete <addr>",        cmd_del_break},
     {"uart",    "Send char to UART: uart <char>",          cmd_uart_send},
+    {"diagram", "Show UART timing diagram (ASCII)",        cmd_diagram},
+    {"diagram-save", "Save UART diagram: diagram-save [path.html]", cmd_diagram_save},
+    {"profile", "Show IRQ handler timing statistics",     cmd_profile},
     {"quit",    "Exit the simulator",                      cmd_quit},
     {NULL, NULL, NULL}  /* Sentinel */
 };
@@ -241,6 +248,37 @@ static void cmd_uart_send(Simulator* sim, const char* args)
         uart_incoming_char(&sim->uart, *args);
         printf("Sent '%c' to UART\n", *args);
     }
+}
+
+static void cmd_diagram(Simulator* sim, const char* args)
+{
+    (void)args;
+    char buf[UART_DIAGRAM_BUF_SZ];
+    uart_logger_generate_diagram(&sim->uart_logger, buf, sizeof(buf));
+    printf("%s\n", buf);
+}
+
+static void cmd_diagram_save(Simulator* sim, const char* args)
+{
+    const char* path = "uart_diagram.html";
+    if (args && *args != '\0') {
+        while (isspace((unsigned char)*args)) args++;
+        if (*args) path = args;
+    }
+    FILE* f = fopen(path, "w");
+    if (!f) {
+        printf("Cannot open %s for writing\n", path);
+        return;
+    }
+    uart_logger_write_html(&sim->uart_logger, f);
+    fclose(f);
+    printf("Saved to %s\n", path);
+}
+
+static void cmd_profile(Simulator* sim, const char* args)
+{
+    (void)args;
+    profiler_print(&sim->profiler);
 }
 
 static int quit_flag = 0;
