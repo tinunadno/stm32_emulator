@@ -1,0 +1,35 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "STM32: Debug без ELF (Cortex-Debug)",
+      "type": "cortex-debug",
+      "request": "attach",
+      "servertype": "external",
+      "gdbTarget": "localhost:3333",
+      "executable": "${workspaceFolder}/examples/stub.elf",
+      "gdbPath": "/usr/local/bin/arm-none-eabi-gdb",
+      "preLaunchTask": "GDB server: start",
+      "showDevDebugOutput": "none"
+    },
+    {
+      "name": "STM32: Debug с ELF (Cortex-Debug)",
+      "type": "cortex-debug",
+      "request": "attach",
+      "servertype": "external",
+      "gdbTarget": "localhost:3333",
+      "executable": "${workspaceFolder}/examples/firmware.elf",
+      "gdbPath": "/usr/local/bin/arm-none-eabi-gdb",
+      "preLaunchTask": "GDB server: start",
+      "showDevDebugOutput": "none"
+    },
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/kirillsleptsov/stm32_emulator/examples",
+      "program": "/Users/kirillsleptsov/stm32_emulator/examples/build/Debug/outDebug"
+    }
+  ]
+}

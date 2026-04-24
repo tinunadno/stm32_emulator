@@ -1,0 +1,51 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build: emulator",
+            "type": "shell",
+            "command": "make",
+            "args": ["-C", "${workspaceFolder}/src", "CC=clang"],
+            "group": { "kind": "build", "isDefault": true },
+            "presentation": { "reveal": "always", "panel": "shared" }
+        },
+        {
+            "label": "Build: firmware",
+            "type": "shell",
+            "command": "make",
+            "args": ["-C", "${workspaceFolder}/examples"],
+            "presentation": { "reveal": "always", "panel": "shared" }
+        },
+        {
+            "label": "UART: Open Diagram",
+            "type": "shell",
+            "command": "open",
+            "args": ["${workspaceFolder}/uart_diagram.html"],
+            "presentation": { "reveal": "silent", "panel": "shared" }
+        },
+        {
+            "label": "GDB server: start",
+            "type": "shell",
+            "command": "${workspaceFolder}/src/stm32sim",
+            "args": [
+                "${workspaceFolder}/examples/firmware.bin",
+                "--gdb"
+            ],
+            "isBackground": true,
+            "dependsOn": "Build: emulator",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "label": "STM32 GDB Server"
+            },
+            "problemMatcher": {
+                "pattern": { "regexp": "^$" },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^GDB stub",
+                    "endsPattern": "^GDB stub listening on port"
+                }
+            }
+        }
+    ]
+}
