@@ -1,0 +1,24 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+database:
+  host: "localhost"
+  port: 5432
+  user: "lab"
+  password: "secret"
+  database: "lab"
+  sslmode: "disable"
+
+keydb:
+  addr: "localhost:6379"
+  password: ""
+  db: 0
+
+worker:
+  simulator:
+    binary: ./stm32sim
+    max_memory_mb: 256
+  debug_port_range:
+    start: 3333
+    end: 3343
