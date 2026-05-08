@@ -134,7 +134,7 @@ void simulator_reset(Simulator* sim)
     sim->halted  = 0;
     sim->running = 0;
 
-    printf("Simulator reset\n");
+    fprintf(stderr, "Simulator reset\n");
 }
 
 Status simulator_step(Simulator* sim)
@@ -167,7 +167,7 @@ Status simulator_step(Simulator* sim)
     /* 5. Check breakpoints */
     if (debugger_check(&sim->debugger, sim->core.state.r[REG_PC])) {
         sim->halted = 1;
-        printf("Breakpoint hit at 0x%08X\n", sim->core.state.r[REG_PC]);
+        fprintf(stderr, "Breakpoint hit at 0x%08X\n", sim->core.state.r[REG_PC]);
         return STATUS_BREAKPOINT_HIT;
     }
 

@@ -29,7 +29,7 @@ Status memory_load_binary(Memory* mem, const char* path)
         return STATUS_ERROR;
     }
 
-    printf("Loaded %zu bytes into flash\n", n);
+    fprintf(stderr, "Loaded %zu bytes into flash\n", n);
     return STATUS_OK;
 }
 

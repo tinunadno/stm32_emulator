@@ -60,9 +60,6 @@ static void timer_overflow_event(void* ctx)
     if (!(tim->cr1 & TIM_CR1_CEN))
         return;
 
-    fprintf(stderr, "[TIM2] overflow event fired at cycle %llu, dier=0x%X irq=%u\n",
-            (unsigned long long)*tim->sim_cycle, tim->dier, tim->irq);
-
     /* Set update interrupt flag */
     tim->sr |= TIM_SR_UIF;
 
@@ -149,8 +146,6 @@ Status timer_write(void* ctx, uint32_t offset, uint32_t value, uint8_t size)
         if (now_enabled && !was_enabled) {
             /* Timer just enabled: start counting from now */
             tim->start_cycle = *tim->sim_cycle;
-            fprintf(stderr, "[TIM2] CEN=1 at cycle %llu, arr=%u psc=%u dier=0x%X\n",
-                    (unsigned long long)*tim->sim_cycle, tim->arr, tim->psc, tim->dier);
             timer_schedule_next(tim);
         } else if (!now_enabled && was_enabled) {
             /* Timer disabled: bump generation to invalidate pending event */

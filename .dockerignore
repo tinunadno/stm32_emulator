@@ -1,0 +1,4 @@
+src/*.o
+src/**/*.o
+src/stm32sim
+go-service/sim-service

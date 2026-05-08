@@ -1,0 +1,29 @@
+services:
+  keydb:
+    image: eqalpha/keydb:latest
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  sim-service:
+    build: .
+    environment:
+      KEYDB_ADDR: "keydb:6379"
+      WORKER_COUNT: "4"
+      SIM_BINARY: "/app/stm32sim"
+      SIM_MAX_CYCLES: "10000000"
+      SIM_TIMEOUT_SEC: "30"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4317"
+    depends_on:
+      - keydb
+      - jaeger
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP gRPC
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    restart: unless-stopped
